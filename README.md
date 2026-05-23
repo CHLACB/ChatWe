@@ -74,7 +74,19 @@ http://127.0.0.1:8000/docs
 
 ## 真实微信 UIA 模式
 
-真实 UIA 模式需要你先采集控件信息。
+程序内置微信 PC 版 3.9.12.56 的通用 UIA 策略。多数环境可以先直接自检：
+
+```bash
+python scripts/wechat_uia_selfcheck.py 文件传输助手
+```
+
+自检通过后设置：
+
+```text
+APP_DRIVER_MODE=uia
+```
+
+如果自检失败，再采集控件信息并创建本机覆盖配置。
 
 ```bash
 pip install uiautomation pywin32
@@ -83,7 +95,7 @@ python scripts/dump_wechat_controls.py --class-name WeChatMainWndForPC --depth 8
 python scripts/dump_wechat_controls.py --class-name WeChatMainWndForPC --depth 10 --out docs/wechat_current_chat_dump.md
 ```
 
-然后根据采集结果填写：
+根据采集结果填写：
 
 ```text
 config/wechat_locators.local.json
@@ -96,7 +108,29 @@ APP_DRIVER_MODE=uia
 APP_WECHAT_LOCATORS=config/wechat_locators.local.json
 ```
 
-注意：当前驱动只固化微信 3.9.12.56 主窗口类名候选。没有填写搜索框、聊天标题、输入框、消息区等定位器时，UIA 驱动会返回结构化错误和 dump 命令，而不是乱点窗口。
+注意：`.local.json` 只用于本机覆盖，不要提交。UIA 驱动会先使用内置 3.9.12.56 策略，再合并 local 覆盖。定位失败时会返回结构化错误和 dump 命令，而不是乱点窗口。
+
+## Windows 打包分发
+
+生成可分发 zip：
+
+```powershell
+.\scripts\package_windows.ps1
+```
+
+产物：
+
+```text
+dist\ChatWe-windows.zip
+```
+
+新机器解压后先运行：
+
+```bat
+selfcheck_uia.bat 文件传输助手
+```
+
+详见 `docs\PACKAGING.md`。
 
 ## Mock 主链路
 

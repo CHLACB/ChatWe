@@ -25,10 +25,8 @@ def main() -> int:
         f"rect={getattr(search_box, 'BoundingRectangle', '')!r}"
     )
 
-    driver._auto.SendKeys("{Ctrl}f")
-    time.sleep(0.5)
-    focused = driver._focused_control()
-    in_search = focused is not None and driver._same_or_child_rect(search_box, focused)
+    focused = driver._focus_search_box_with_hotkey(search_box)
+    in_search = focused is not None
     print(
         "focused_after_ctrl_f="
         f"ok={in_search} "

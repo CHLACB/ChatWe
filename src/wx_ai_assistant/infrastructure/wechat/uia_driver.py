@@ -20,6 +20,7 @@ from wx_ai_assistant.infrastructure.wechat.uia_finder import (
     nodes_to_dicts,
     require_uiautomation,
 )
+from wx_ai_assistant.infrastructure.wechat.builtin_locators import builtin_locators
 from wx_ai_assistant.ports.wechat_driver import DriverStatus, SendResult, WechatDriver, WindowInfo
 
 
@@ -175,9 +176,22 @@ class UiaWechatDriver(WechatDriver):
         return nodes_to_dicts(dump_tree_nodes(self._window, max_depth=depth))
 
     def _load_locators(self) -> dict[str, Any]:
-        if not self.locator_path.exists():
-            return {}
-        return json.loads(self.locator_path.read_text(encoding="utf-8"))
+        locators = builtin_locators()
+        if self.locator_path.exists():
+            locators = self._deep_merge(locators, json.loads(self.locator_path.read_text(encoding="utf-8")))
+            locators["_source"] = f"builtin+{self.locator_path}"
+        else:
+            locators["_source"] = "builtin"
+        return locators
+
+    def _deep_merge(self, base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+        merged = dict(base)
+        for key, value in override.items():
+            if isinstance(value, dict) and isinstance(merged.get(key), dict):
+                merged[key] = self._deep_merge(merged[key], value)
+            else:
+                merged[key] = value
+        return merged
 
     def _find_window(self):
         self._ensure_auto()
@@ -210,6 +224,7 @@ class UiaWechatDriver(WechatDriver):
             "wechat_version": WECHAT_VERSION,
             "verified_main_class": WECHAT_39_MAIN_CLASS,
             "locator_path": str(self.locator_path),
+            "locator_source": (self._locators or {}).get("_source", "not_loaded"),
         }
         if self._window_info:
             details["window"] = self._window_info.__dict__
@@ -323,6 +338,8 @@ class UiaWechatDriver(WechatDriver):
             return 0.05 <= center_x <= 0.36
         if region == "conversation_panel_header":
             return 0.05 <= center_x <= 0.36 and center_y <= 0.16
+        if region == "navigation_top":
+            return 0.0 <= center_x <= 0.08 and 0.03 <= center_y <= 0.16
         if region == "chat_panel":
             return center_x >= 0.33
         if region == "chat_header":
@@ -373,16 +390,10 @@ class UiaWechatDriver(WechatDriver):
         search_text = names[0]
 
         search_box = self._locate_required("search_box")
-        self._auto.SendKeys("{Ctrl}f")
-        time.sleep(0.2)
-
-        focused = self._focused_control()
-        if focused is None or not self._same_or_child_rect(search_box, focused):
+        focused = self._focus_search_box_with_hotkey(search_box)
+        if focused is None:
             raise DriverNotConfiguredError(
                 "Ctrl+F 后焦点未落到左侧搜索框，已停止输入，避免误写入聊天输入框。"
-                f" focused_name={getattr(focused, 'Name', '')!r}, "
-                f"focused_type={getattr(focused, 'ControlTypeName', '')!r}, "
-                f"focused_rect={getattr(focused, 'BoundingRectangle', '')!r}"
             )
 
         self._clear_input_no_mouse()
@@ -390,6 +401,25 @@ class UiaWechatDriver(WechatDriver):
         time.sleep(0.25)
         self._send_enter()
         time.sleep(0.35)
+
+    def _focus_search_box_with_hotkey(self, search_box: Any) -> Any | None:
+        assert self._auto is not None
+        last_focused = None
+        for _ in range(3):
+            self._auto.SendKeys("{Ctrl}f")
+            time.sleep(0.25)
+            focused = self._focused_control()
+            last_focused = focused
+            if focused is not None and self._same_or_child_rect(search_box, focused):
+                return focused
+        if last_focused is not None:
+            raise DriverNotConfiguredError(
+                "Ctrl+F 后焦点未落到左侧搜索框，已停止输入，避免误写入聊天输入框。"
+                f" focused_name={getattr(last_focused, 'Name', '')!r}, "
+                f"focused_type={getattr(last_focused, 'ControlTypeName', '')!r}, "
+                f"focused_rect={getattr(last_focused, 'BoundingRectangle', '')!r}"
+            )
+        return None
 
     def _activate_conversation_from_list(self, identity: ConversationIdentity) -> None:
         names = {identity.display_name, identity.remark_name} - {None, ""}
@@ -452,6 +482,10 @@ class UiaWechatDriver(WechatDriver):
         locator = (self._locators or {}).get("message_item") or {}
         name = str(getattr(item, "Name", "") or "")
         class_name = str(getattr(item, "ClassName", "") or "")
+        if not locator.get("self_avatar_name"):
+            auto_self_avatar_name = self._detect_self_avatar_name()
+            if auto_self_avatar_name:
+                locator["self_avatar_name"] = auto_self_avatar_name
         if locator.get("self_avatar_name") and self._has_avatar(item, locator["self_avatar_name"], locator.get("self_avatar_region")):
             return SenderType.SELF
         if locator.get("self_name_contains") and locator["self_name_contains"] in name:
@@ -463,6 +497,14 @@ class UiaWechatDriver(WechatDriver):
         if self._looks_like_time_marker(name):
             return SenderType.SYSTEM
         return SenderType.UNKNOWN
+
+    def _detect_self_avatar_name(self) -> str | None:
+        try:
+            navigation = self._locate_required("navigation_avatar")
+            name = str(getattr(navigation, "Name", "") or "").strip()
+            return name or None
+        except Exception:
+            return None
 
     def _has_avatar(self, item: Any, avatar_name: str, region: str | None) -> bool:
         item_rect = self._rect_tuple(item)
