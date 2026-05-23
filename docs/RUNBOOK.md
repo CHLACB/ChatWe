@@ -136,3 +136,23 @@ pytest
 python -m pip install -r requirements.txt
 python -m pip install pytest
 ```
+
+## 11. 真实 UIA 回归验证
+
+在微信 3.9.12.56 已登录并打开主窗口后，可以按顺序验证：
+
+```bash
+python scripts/wechat_uia_selfcheck.py 文件传输助手
+python scripts/switch_filehelper_test.py
+python scripts/read_visible_messages_test.py
+python scripts/send_queue_uia_test.py "uia-regression-001"
+python scripts/uia_listener_poll_once_test.py 文件传输助手
+```
+
+期望结果：
+
+- `switch_filehelper_test.py` 返回 `switch_status.ok=True`
+- `read_visible_messages_test.py` 能读取可见文本消息
+- `send_queue_uia_test.py` 返回 `send_task_status=success`
+- `uia_listener_poll_once_test.py` 保持 `listen_status=listening`
+- 文件传输助手内自己的消息应入库，但 `pending_send_tasks=0`

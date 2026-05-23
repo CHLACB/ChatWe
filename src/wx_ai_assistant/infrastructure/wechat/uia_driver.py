@@ -555,9 +555,25 @@ class UiaWechatDriver(WechatDriver):
         if hasattr(control, "SetFocus"):
             control.SetFocus()
 
+    def _focus_input_box_no_mouse(self, input_box: Any) -> None:
+        last_focused = None
+        for _ in range(3):
+            self._set_focus_no_mouse(input_box)
+            time.sleep(0.15)
+            focused = self._focused_control()
+            last_focused = focused
+            if focused is not None and self._same_or_child_rect(input_box, focused):
+                return
+        raise DriverNotConfiguredError(
+            "输入框未获得键盘焦点，已停止发送，避免误写入其他控件。"
+            f" focused_name={getattr(last_focused, 'Name', '')!r}, "
+            f"focused_type={getattr(last_focused, 'ControlTypeName', '')!r}, "
+            f"focused_rect={getattr(last_focused, 'BoundingRectangle', '')!r}"
+        )
+
     def _send_configured_method(self, identity: ConversationIdentity, input_box: Any, send_button: Any | None, content: str) -> str:
         method = ((self._locators or {}).get("send_behavior") or {}).get("method", "clipboard_alt_s")
-        self._set_focus_no_mouse(input_box)
+        self._focus_input_box_no_mouse(input_box)
         self._clear_input_no_mouse()
 
         if method == "clipboard_alt_s":
