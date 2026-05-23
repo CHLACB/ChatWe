@@ -24,6 +24,7 @@ from wx_ai_assistant.infrastructure.wechat.uia_driver import UiaWechatDriver  # 
 
 def main() -> int:
     target = sys.argv[1] if len(sys.argv) > 1 else "文件传输助手"
+    polls = int(sys.argv[2]) if len(sys.argv) > 2 else 1
     repo_path = Path(tempfile.gettempdir()) / "wechat_ai_uia_listener_poll_once.sqlite3"
     history_path = Path(tempfile.gettempdir()) / "wechat_ai_uia_listener_history.sqlite3"
     repo_path.unlink(missing_ok=True)
@@ -52,7 +53,12 @@ def main() -> int:
         on_messages=app_service.handle_realtime_messages,
         driver_lock=threading.RLock(),
     )
-    listener.poll_once()
+    counts: list[int] = []
+    for index in range(polls):
+        listener.poll_once()
+        count = len(repo.list_recent_messages(target_model.conversation.conversation_id, 200))
+        counts.append(count)
+        print(f"poll={index + 1} stored_messages={count}")
 
     target_after = repo.get_listen_target(target_model.conversation.conversation_id)
     messages = repo.list_recent_messages(target_model.conversation.conversation_id, 30)
@@ -60,6 +66,7 @@ def main() -> int:
 
     print(f"listen_status={target_after.status.value if target_after else None} error={target_after.last_error if target_after else None}")
     print(f"stored_messages={len(messages)}")
+    print(f"stored_message_counts={counts}")
     for msg in messages[-10:]:
         print(f"message sender={msg.sender_type.value} source={msg.source.value} content={msg.content!r}")
     print(f"pending_send_tasks={len(pending)}")

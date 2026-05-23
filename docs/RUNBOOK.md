@@ -146,7 +146,7 @@ python scripts/wechat_uia_selfcheck.py 文件传输助手
 python scripts/switch_filehelper_test.py
 python scripts/read_visible_messages_test.py
 python scripts/send_queue_uia_test.py "uia-regression-001"
-python scripts/uia_listener_poll_once_test.py 文件传输助手
+python scripts/uia_listener_poll_once_test.py 文件传输助手 2
 ```
 
 期望结果：
@@ -156,3 +156,4 @@ python scripts/uia_listener_poll_once_test.py 文件传输助手
 - `send_queue_uia_test.py` 返回 `send_task_status=success`
 - `uia_listener_poll_once_test.py` 保持 `listen_status=listening`
 - 文件传输助手内自己的消息应入库，但 `pending_send_tasks=0`
+- 连续两次轮询时 `stored_message_counts` 不应增长，表示同一屏可见旧消息没有重复入库

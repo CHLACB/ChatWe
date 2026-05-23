@@ -87,6 +87,23 @@ def test_other_message_triggers_ai_and_nonempty_reply_creates_send_task(tmp_path
     assert tasks[0].content == "reply"
 
 
+def test_repeated_realtime_fingerprint_does_not_trigger_ai_twice(tmp_path):
+    ai = StaticAi("reply")
+    service, repo, _, _, identity = build_service(tmp_path, ai)
+
+    first = other_text(identity, "same visible message")
+    first.fingerprint = "uia-visible-stable-fingerprint"
+    second = other_text(identity, "same visible message")
+    second.fingerprint = "uia-visible-stable-fingerprint"
+
+    service.handle_realtime_messages(identity, [first])
+    service.handle_realtime_messages(identity, [second])
+
+    assert ai.calls == 1
+    assert len(repo.list_recent_messages(identity.conversation_id)) == 1
+    assert len(repo.list_pending_send_tasks()) == 1
+
+
 def test_unlisted_conversation_is_not_processed(tmp_path):
     service, repo, driver, _, _ = build_service(tmp_path, StaticAi("reply"))
     unknown = ConversationIdentity("conv_unknown", ConversationType.FRIEND, "陌生人")

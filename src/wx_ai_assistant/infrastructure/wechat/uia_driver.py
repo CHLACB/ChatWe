@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 import time
 from pathlib import Path
@@ -122,17 +123,21 @@ class UiaWechatDriver(WechatDriver):
             self._ensure_ready()
             message_list = self._locate_required("message_list")
             messages: list[Message] = []
-            for item in self._message_items(message_list):
+            for index, item in enumerate(self._message_items(message_list)):
                 content = str(getattr(item, "Name", "") or "").strip()
                 if not content:
                     continue
+                sender_type = self._classify_sender(item)
+                fingerprint = self._visible_message_fingerprint(identity, item, sender_type, content, index)
                 messages.append(
                     Message(
                         conversation_id=identity.conversation_id,
-                        sender_type=self._classify_sender(item),
-                        sender_name="需要补充控件信息" if self._classify_sender(item) == SenderType.UNKNOWN else None,
+                        sender_type=sender_type,
+                        sender_name="需要补充控件信息" if sender_type == SenderType.UNKNOWN else None,
                         message_type=MessageType.TEXT,
                         content=content,
+                        raw_id=fingerprint,
+                        fingerprint=fingerprint,
                     )
                 )
             return messages
@@ -365,6 +370,29 @@ class UiaWechatDriver(WechatDriver):
             return list(message_list.GetChildren())
         except Exception:
             return []
+
+    def _visible_message_fingerprint(
+        self,
+        identity: ConversationIdentity,
+        item: Any,
+        sender_type: SenderType,
+        content: str,
+        index: int,
+    ) -> str:
+        rect = self._rect_tuple(item)
+        rect_text = ",".join(str(part) for part in rect) if rect else "no-rect"
+        raw = "|".join(
+            [
+                "uia-visible-v1",
+                WECHAT_VERSION,
+                identity.conversation_id,
+                sender_type.value,
+                content.strip(),
+                rect_text,
+                str(index),
+            ]
+        )
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     def _identity_title_matches(self, expected: ConversationIdentity, actual: ConversationIdentity | None) -> bool:
         if actual is None:
