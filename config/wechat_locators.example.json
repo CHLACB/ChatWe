@@ -1,5 +1,5 @@
 {
-  "description": "示例文件。不要直接使用。请根据本机微信控件树填写 config/wechat_locators.local.json。",
+  "description": "示例文件。复制为 config/wechat_locators.local.json 后，根据本机微信控件树填写或校正。不要提交 .local.json。",
   "wechat_version": "3.9.12.56",
   "verification_source": "填写 dump 文件、Inspect.exe 截图或 Accessibility Insights 记录路径",
   "window": {
@@ -8,50 +8,57 @@
     "automation_id": ""
   },
   "switch_conversation": {
-    "verified": false,
-    "verification_source": "",
-    "fallback": "失败时 dump search_box/search_result/chat_title，不继续猜测"
+    "verified": true,
+    "method": "ctrl_f_search_enter",
+    "verification_source": "本机验证 Ctrl+F 可将焦点切到左侧搜索框；输入前必须验证焦点在 search_box 内。",
+    "fallback": "Ctrl+F 后焦点未落到已验证 search_box 时失败，不继续输入，避免误发到聊天输入框。"
   },
   "chat_title": {
-    "path": [],
-    "control_type": "",
-    "name_contains": "",
-    "class_name": "",
-    "automation_id": "",
-    "index": null
+    "control_type": "TextControl",
+    "name_not_empty": true,
+    "region": "chat_header",
+    "name_not_matches": "^(\\d{4}年|星期.|\\d{1,2}:\\d{2}|.*\\bAM\\b|.*\\bPM\\b)",
+    "max_width_ratio": 0.35,
+    "fallback": "失败时 dump 当前聊天窗口 header 区域"
   },
   "search_box": {
-    "path": [],
-    "control_type": "",
-    "name_contains": "",
-    "class_name": "",
-    "automation_id": "",
-    "index": null
+    "control_type": "EditControl",
+    "name_contains": "搜索",
+    "region": "conversation_panel_header",
+    "fallback": "失败时 dump 左侧会话面板顶部"
+  },
+  "conversation_list": {
+    "control_type": "ListControl",
+    "name_contains": "会话",
+    "region": "conversation_panel",
+    "fallback": "失败时 dump 左侧会话列表"
   },
   "message_list": {
-    "path": [],
-    "control_type": "",
-    "name_contains": "",
-    "class_name": "",
-    "automation_id": "",
-    "index": null
+    "control_type": "ListControl",
+    "name_contains": "消息",
+    "region": "message_area",
+    "fallback": "失败时 dump 右侧消息区域"
   },
   "message_item": {
-    "self_name_contains": "",
-    "other_name_contains": "",
-    "system_class_name": "",
+    "self_avatar_name": "填写自己的头像/昵称按钮 Name，例如从 dump 的自己消息右侧 ButtonControl 读取",
+    "self_avatar_region": "right",
     "fallback": "无法可靠区分时返回 sender_type=unknown，并补充控件信息"
   },
   "input_box": {
-    "path": [],
-    "control_type": "",
-    "name_contains": "",
-    "class_name": "",
-    "automation_id": "",
-    "index": null
+    "control_type": "EditControl",
+    "region": "input_area",
+    "fallback": "失败时 dump 右侧底部输入区"
+  },
+  "send_button": {
+    "control_type": "ButtonControl",
+    "name_contains": "发送(S)",
+    "region": "input_area",
+    "fallback": "失败时停止，不循环兜底"
   },
   "send_behavior": {
-    "method": "enter",
+    "method": "clipboard_alt_s",
+    "fallback_order": [],
+    "note": "单一无鼠标策略；不循环兜底，避免向输入框重复写入文本。",
     "verify_after_send": true
   }
 }
