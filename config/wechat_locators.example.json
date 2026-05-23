@@ -1,0 +1,57 @@
+{
+  "description": "示例文件。不要直接使用。请根据本机微信控件树填写 config/wechat_locators.local.json。",
+  "wechat_version": "3.9.12.56",
+  "verification_source": "填写 dump 文件、Inspect.exe 截图或 Accessibility Insights 记录路径",
+  "window": {
+    "title_contains": "微信",
+    "class_name": "WeChatMainWndForPC",
+    "automation_id": ""
+  },
+  "switch_conversation": {
+    "verified": false,
+    "verification_source": "",
+    "fallback": "失败时 dump search_box/search_result/chat_title，不继续猜测"
+  },
+  "chat_title": {
+    "path": [],
+    "control_type": "",
+    "name_contains": "",
+    "class_name": "",
+    "automation_id": "",
+    "index": null
+  },
+  "search_box": {
+    "path": [],
+    "control_type": "",
+    "name_contains": "",
+    "class_name": "",
+    "automation_id": "",
+    "index": null
+  },
+  "message_list": {
+    "path": [],
+    "control_type": "",
+    "name_contains": "",
+    "class_name": "",
+    "automation_id": "",
+    "index": null
+  },
+  "message_item": {
+    "self_name_contains": "",
+    "other_name_contains": "",
+    "system_class_name": "",
+    "fallback": "无法可靠区分时返回 sender_type=unknown，并补充控件信息"
+  },
+  "input_box": {
+    "path": [],
+    "control_type": "",
+    "name_contains": "",
+    "class_name": "",
+    "automation_id": "",
+    "index": null
+  },
+  "send_behavior": {
+    "method": "enter",
+    "verify_after_send": true
+  }
+}
