@@ -23,6 +23,7 @@ http://127.0.0.1:8000/docs
 ```text
 POST /system/initialize
 GET  /system/status
+GET  /system/current-conversation
 ```
 
 ## 3. 添加监听对象
@@ -44,12 +45,15 @@ POST /listen/targets
 }
 ```
 
+第一阶段只支持好友私聊。`conversation_type=group` 会被 Service 层拒绝，API 返回 400。
+
 ## 4. 启动监听
 
 调用：
 
 ```text
 POST /listen/targets/{conversation_id}/start
+POST /listen/poll-once
 ```
 
 ## 5. 手动发送文本
@@ -58,6 +62,8 @@ POST /listen/targets/{conversation_id}/start
 
 ```text
 POST /send/text
+GET  /send/tasks
+GET  /send/tasks/{send_task_id}
 ```
 
 所有手动发送也只会创建发送任务，不会绕过发送队列。

@@ -52,7 +52,7 @@ def create_app() -> FastAPI:
         on_baseline_messages=app_service.handle_baseline_messages,
         driver_lock=driver_lock,
     )
-    app_service.bind_listener_controls(listener_manager.start_target, listener_manager.stop_target)
+    app_service.bind_listener_controls(listener_manager.start_target, listener_manager.stop_target, listener_manager.poll_once)
 
     # now connect failure callback
     send_queue.on_failed = lambda conversation_id, error: listener_manager.stop_target(conversation_id, error)

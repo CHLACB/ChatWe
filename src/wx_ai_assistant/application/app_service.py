@@ -6,7 +6,7 @@ from uuid import uuid5, NAMESPACE_URL
 from wx_ai_assistant.application.context_builder import ContextBuilder
 from wx_ai_assistant.application.message_ingestion import MessageIngestionService
 from wx_ai_assistant.application.send_queue import SendQueue
-from wx_ai_assistant.domain.enums import ConversationType, ListenStatus
+from wx_ai_assistant.domain.enums import ConversationType, ListenStatus, SendTaskStatus
 from wx_ai_assistant.domain.models import ConversationIdentity, ListenTarget, Message
 from wx_ai_assistant.ports.ai_gateway import AiGateway
 from wx_ai_assistant.ports.repository import Repository
@@ -31,6 +31,7 @@ class WechatApplicationService:
         self.send_queue = send_queue
         self._start_listener: Callable[[str], None] | None = None
         self._stop_listener: Callable[[str, str | None], None] | None = None
+        self._poll_once: Callable[[], None] | None = None
 
     def initialize(self):
         return self.driver.initialize()
@@ -45,6 +46,7 @@ class WechatApplicationService:
         remark_name: str | None = None,
         local_id: str | None = None,
     ) -> ListenTarget:
+        self._ensure_friend_conversation(conversation_type)
         conversation_id = self._conversation_id(conversation_type, display_name, remark_name, local_id)
         identity = ConversationIdentity(
             conversation_id=conversation_id,
@@ -64,9 +66,11 @@ class WechatApplicationService:
         self,
         start_listener: Callable[[str], None],
         stop_listener: Callable[[str, str | None], None],
+        poll_once: Callable[[], None] | None = None,
     ) -> None:
         self._start_listener = start_listener
         self._stop_listener = stop_listener
+        self._poll_once = poll_once
 
     def start_listen_target(self, conversation_id: str) -> None:
         if self._start_listener is None:
@@ -82,7 +86,32 @@ class WechatApplicationService:
         return self.repo.list_recent_messages(conversation_id, limit)
 
     def send_text_manually(self, conversation_id: str, content: str):
+        identity = self.repo.get_conversation(conversation_id)
+        if identity is None:
+            raise ValueError(f"会话不存在: {conversation_id}")
+        self._ensure_friend_conversation(identity.conversation_type)
+        if not content.strip():
+            raise ValueError("发送内容不能为空")
         return self.send_queue.enqueue(conversation_id=conversation_id, content=content)
+
+    def list_send_tasks(
+        self,
+        conversation_id: str | None = None,
+        status: SendTaskStatus | None = None,
+        limit: int = 50,
+    ):
+        return self.repo.list_send_tasks(conversation_id=conversation_id, status=status, limit=limit)
+
+    def get_send_task(self, send_task_id: str):
+        return self.repo.get_send_task(send_task_id)
+
+    def poll_listeners_once(self) -> None:
+        if self._poll_once is None:
+            raise RuntimeError("监听调度器尚未绑定")
+        self._poll_once()
+
+    def current_conversation(self) -> ConversationIdentity | None:
+        return self.driver.get_current_conversation()
 
     def create_mock_text_message(self, conversation_id: str, content: str, sender_name: str = "other") -> Message:
         identity = self.repo.get_conversation(conversation_id)
@@ -117,3 +146,7 @@ class WechatApplicationService:
     def _conversation_id(self, conversation_type: ConversationType, display_name: str, remark_name: str | None, local_id: str | None) -> str:
         stable = f"{conversation_type.value}|{local_id or ''}|{remark_name or ''}|{display_name}"
         return "conv_" + uuid5(NAMESPACE_URL, stable).hex
+
+    def _ensure_friend_conversation(self, conversation_type: ConversationType) -> None:
+        if conversation_type != ConversationType.FRIEND:
+            raise ValueError("第一阶段只支持好友私聊，不支持群聊")

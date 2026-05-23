@@ -115,6 +115,17 @@ def test_unlisted_conversation_is_not_processed(tmp_path):
     assert repo.list_pending_send_tasks() == []
 
 
+def test_group_listen_target_is_rejected_in_first_phase(tmp_path):
+    service, _, _, _, _ = build_service(tmp_path, StaticAi(""))
+
+    try:
+        service.add_listen_target("测试群", ConversationType.GROUP, local_id="group1")
+    except ValueError as exc:
+        assert "只支持好友私聊" in str(exc)
+    else:
+        raise AssertionError("group listen target should be rejected")
+
+
 def test_empty_ai_reply_does_not_create_send_task(tmp_path):
     service, repo, _, _, identity = build_service(tmp_path, StaticAi("  "))
 
@@ -145,6 +156,32 @@ def test_send_queue_verifies_before_send_and_does_not_send_on_mismatch(tmp_path)
     assert row["status"] == SendTaskStatus.FAILED.value
 
 
+def test_manual_send_rejects_unknown_conversation(tmp_path):
+    service, _, _, _, _ = build_service(tmp_path, StaticAi(""))
+
+    try:
+        service.send_text_manually("missing", "hello")
+    except ValueError as exc:
+        assert "会话不存在" in str(exc)
+    else:
+        raise AssertionError("manual send to unknown conversation should be rejected")
+
+
+def test_send_task_query_returns_tasks_by_status(tmp_path):
+    service, repo, _, _, identity = build_service(tmp_path, StaticAi(""))
+
+    task = service.send_text_manually(identity.conversation_id, "queued")
+
+    all_tasks = service.list_send_tasks()
+    pending_tasks = service.list_send_tasks(status=SendTaskStatus.PENDING)
+    one = service.get_send_task(task.send_task_id)
+
+    assert [t.send_task_id for t in all_tasks] == [task.send_task_id]
+    assert [t.send_task_id for t in pending_tasks] == [task.send_task_id]
+    assert one and one.content == "queued"
+    assert repo.get_send_task("missing") is None
+
+
 def test_send_queue_marks_failed_when_after_send_verification_fails(tmp_path):
     service, repo, _, queue, identity = build_service(tmp_path, StaticAi(""))
     task = service.send_text_manually(identity.conversation_id, "reply")
@@ -172,7 +209,7 @@ def test_history_failure_does_not_block_realtime_ai_flow(tmp_path):
 
 def test_single_listener_failure_stops_only_that_target(tmp_path):
     service, repo, _, _, first = build_service(tmp_path, StaticAi(""))
-    second = service.add_listen_target("工作群", ConversationType.GROUP, local_id="group1").conversation
+    second = service.add_listen_target("同事", ConversationType.FRIEND, local_id="friend2").conversation
     repo.set_listen_status(first.conversation_id, ListenStatus.LISTENING)
     repo.set_listen_status(second.conversation_id, ListenStatus.LISTENING)
 

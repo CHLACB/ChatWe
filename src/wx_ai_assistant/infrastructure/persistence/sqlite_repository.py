@@ -239,6 +239,34 @@ class SqliteRepository:
             ).fetchall()
         return [self._row_to_send_task(r) for r in rows]
 
+    def list_send_tasks(
+        self,
+        conversation_id: str | None = None,
+        status: SendTaskStatus | None = None,
+        limit: int = 50,
+    ) -> list[SendTask]:
+        query = "SELECT * FROM send_tasks"
+        clauses: list[str] = []
+        params: list[str | int] = []
+        if conversation_id:
+            clauses.append("conversation_id=?")
+            params.append(conversation_id)
+        if status:
+            clauses.append("status=?")
+            params.append(status.value)
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        with self._lock:
+            rows = self._conn.execute(query, tuple(params)).fetchall()
+        return [self._row_to_send_task(r) for r in rows]
+
+    def get_send_task(self, send_task_id: str) -> Optional[SendTask]:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM send_tasks WHERE send_task_id=?", (send_task_id,)).fetchone()
+        return self._row_to_send_task(row) if row else None
+
     def _row_to_conversation(self, row: sqlite3.Row) -> ConversationIdentity:
         return ConversationIdentity(
             conversation_id=row["conversation_id"],
