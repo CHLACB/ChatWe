@@ -1,5 +1,9 @@
 .conda/
 .pytest_cache/
+.packaging_tmp/
+build/
+dist/
+*.spec
 __pycache__/
 *.py[cod]
 *$py.class
