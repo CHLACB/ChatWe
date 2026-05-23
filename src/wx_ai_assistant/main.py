@@ -49,6 +49,7 @@ def create_app() -> FastAPI:
         driver=driver,
         poll_interval_seconds=settings.poll_interval_seconds,
         on_messages=app_service.handle_realtime_messages,
+        on_baseline_messages=app_service.handle_baseline_messages,
         driver_lock=driver_lock,
     )
     app_service.bind_listener_controls(listener_manager.start_target, listener_manager.stop_target)

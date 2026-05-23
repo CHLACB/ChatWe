@@ -109,6 +109,11 @@ class WechatApplicationService:
             if reply:
                 self.send_queue.enqueue(identity.conversation_id, reply, trigger_message_id=msg.message_id)
 
+    def handle_baseline_messages(self, identity: ConversationIdentity, messages: list[Message]) -> None:
+        if self.repo.get_listen_target(identity.conversation_id) is None:
+            return
+        self.ingestion.ingest_baseline_messages(identity, messages)
+
     def _conversation_id(self, conversation_type: ConversationType, display_name: str, remark_name: str | None, local_id: str | None) -> str:
         stable = f"{conversation_type.value}|{local_id or ''}|{remark_name or ''}|{display_name}"
         return "conv_" + uuid5(NAMESPACE_URL, stable).hex

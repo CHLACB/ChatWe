@@ -31,6 +31,20 @@ class MessageIngestionService:
                 trigger_messages.append(msg)
         return trigger_messages
 
+    def ingest_baseline_messages(self, identity: ConversationIdentity, messages: list[Message]) -> int:
+        """Store visible messages when a listener starts, but never trigger AI."""
+        current = self.driver.get_current_conversation()
+        self.verifier.verify_before_ingest(identity, current)
+
+        inserted_count = 0
+        for msg in messages:
+            msg.conversation_id = identity.conversation_id
+            if not msg.fingerprint:
+                msg.fingerprint = self._fingerprint(msg)
+            if self.repo.insert_message_if_new(msg):
+                inserted_count += 1
+        return inserted_count
+
     def insert_sent_message(self, identity: ConversationIdentity, content: str) -> Message:
         msg = Message(
             conversation_id=identity.conversation_id,

@@ -155,5 +155,6 @@ python scripts/uia_listener_poll_once_test.py 文件传输助手 2
 - `read_visible_messages_test.py` 能读取可见文本消息
 - `send_queue_uia_test.py` 返回 `send_task_status=success`
 - `uia_listener_poll_once_test.py` 保持 `listen_status=listening`
+- 第一次监听轮询只建立可见消息基线，不触发 AI
 - 文件传输助手内自己的消息应入库，但 `pending_send_tasks=0`
-- 连续两次轮询时 `stored_message_counts` 不应增长，表示同一屏可见旧消息没有重复入库
+- 连续两次轮询时 `stored_message_counts` 不应增长，表示同一屏可见旧消息没有重复入库或重复触发

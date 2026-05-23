@@ -189,6 +189,34 @@ def test_single_listener_failure_stops_only_that_target(tmp_path):
     assert repo.get_listen_target(second.conversation_id).status == ListenStatus.LISTENING
 
 
+def test_listener_first_successful_poll_baselines_visible_messages_without_ai(tmp_path):
+    ai = StaticAi("reply")
+    service, repo, driver, _, identity = build_service(tmp_path, ai)
+    repo.set_listen_status(identity.conversation_id, ListenStatus.LISTENING)
+    driver.inject_other_text(identity, "old visible message", "friend")
+
+    listener = ListenerManager(
+        repo,
+        driver,
+        1,
+        service.handle_realtime_messages,
+        on_baseline_messages=service.handle_baseline_messages,
+    )
+    listener.poll_once()
+
+    assert ai.calls == 0
+    assert len(repo.list_recent_messages(identity.conversation_id)) == 1
+    assert repo.list_pending_send_tasks() == []
+
+    driver.inject_other_text(identity, "new visible message", "friend")
+    listener.poll_once()
+
+    assert ai.calls == 1
+    tasks = repo.list_pending_send_tasks()
+    assert len(tasks) == 1
+    assert tasks[0].content == "reply"
+
+
 def test_mock_mode_main_chain_runs_through_queue_and_stores_self_message(tmp_path):
     service, repo, driver, queue, identity = build_service(tmp_path, EchoAiGateway())
 

@@ -24,15 +24,18 @@ class ListenerManager:
         driver: WechatDriver,
         poll_interval_seconds: float,
         on_messages: Callable[[ConversationIdentity, list[Message]], None],
+        on_baseline_messages: Callable[[ConversationIdentity, list[Message]], None] | None = None,
         driver_lock: threading.RLock | None = None,
     ):
         self.repo = repo
         self.driver = driver
         self.poll_interval_seconds = poll_interval_seconds
         self.on_messages = on_messages
+        self.on_baseline_messages = on_baseline_messages or on_messages
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._driver_lock = driver_lock or threading.RLock()
+        self._baselined_conversation_ids: set[str] = set()
 
     def start_worker(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -48,6 +51,7 @@ class ListenerManager:
 
     def start_target(self, conversation_id: str) -> None:
         self.repo.set_listen_status(conversation_id, ListenStatus.LISTENING, None)
+        self._baselined_conversation_ids.discard(conversation_id)
         self.start_worker()
 
     def stop_target(self, conversation_id: str, reason: str | None = None) -> None:
@@ -62,7 +66,10 @@ class ListenerManager:
                     if not status.ok:
                         raise RuntimeError(status.message)
                     messages = self.driver.read_visible_text_messages(target.conversation)
-                if messages:
+                if target.conversation.conversation_id not in self._baselined_conversation_ids:
+                    self.on_baseline_messages(target.conversation, messages)
+                    self._baselined_conversation_ids.add(target.conversation.conversation_id)
+                elif messages:
                     self.on_messages(target.conversation, messages)
             except Exception as exc:
                 self.stop_target(target.conversation.conversation_id, str(exc))
