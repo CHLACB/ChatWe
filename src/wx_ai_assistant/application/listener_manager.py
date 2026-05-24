@@ -68,11 +68,11 @@ class ListenerManager:
                     if not status.ok:
                         raise RuntimeError(status.message)
                     messages = self.driver.read_visible_text_messages(target.conversation)
-                if target.conversation.conversation_id not in self._baselined_conversation_ids:
-                    self.on_baseline_messages(target.conversation, messages)
-                    self._baselined_conversation_ids.add(target.conversation.conversation_id)
-                elif messages:
-                    self.on_messages(target.conversation, messages)
+                    if target.conversation.conversation_id not in self._baselined_conversation_ids:
+                        self.on_baseline_messages(target.conversation, messages)
+                        self._baselined_conversation_ids.add(target.conversation.conversation_id)
+                    elif messages:
+                        self.on_messages(target.conversation, messages)
             except Exception as exc:
                 self.stop_target(target.conversation.conversation_id, str(exc))
         if self.on_after_poll:

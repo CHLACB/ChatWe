@@ -11,6 +11,7 @@ WECHAT_391256_BUILTIN_LOCATORS: dict[str, Any] = {
         "scripts/search_hotkey_focus_test.py 验证 Ctrl+F 可聚焦左侧搜索框",
         "scripts/switch_filehelper_test.py 验证 Ctrl+F 搜索 + Enter 可切换到文件传输助手",
         "scripts/send_queue_uia_test.py 验证 clipboard_alt_s 可发送并在可见消息中确认",
+        "本机 dump 验证 input_box 的 Name 等于当前聊天名，可作为 chat_title 临时不可读时的身份兜底",
     ],
     "window": {
         "title_contains": "微信",

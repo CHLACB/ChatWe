@@ -169,6 +169,26 @@ def test_ai_error_is_recorded_without_raising_to_listener(tmp_path):
     assert service._last_ai_errors[-1]["error"] == "ai unavailable"
 
 
+def test_ingest_uses_driver_ingest_identity_fallback(tmp_path):
+    service, repo, driver, _, identity = build_service(tmp_path, StaticAi(""))
+
+    class IngestFallbackDriver(MockWechatDriver):
+        def get_current_conversation(self):
+            return None
+
+        def get_current_conversation_for_ingest(self, expected):
+            return expected
+
+    fallback_driver = IngestFallbackDriver()
+    fallback_driver.switch_conversation(identity)
+    service.driver = fallback_driver
+    service.ingestion.driver = fallback_driver
+
+    service.handle_realtime_messages(identity, [other_text(identity)])
+
+    assert len(repo.list_recent_messages(identity.conversation_id)) == 1
+
+
 def test_repeated_realtime_fingerprint_does_not_trigger_ai_twice(tmp_path):
     ai = StaticAi("reply")
     service, repo, _, _, identity = build_service(tmp_path, ai)

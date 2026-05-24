@@ -19,7 +19,7 @@ class MessageIngestionService:
 
     def ingest_realtime_messages(self, identity: ConversationIdentity, messages: list[Message]) -> list[Message]:
         """Store new messages and return messages that should trigger AI."""
-        current = self.driver.get_current_conversation()
+        current = self._current_for_ingest(identity)
         self.verifier.verify_before_ingest(identity, current)
 
         trigger_messages: list[Message] = []
@@ -37,7 +37,7 @@ class MessageIngestionService:
 
     def ingest_baseline_messages(self, identity: ConversationIdentity, messages: list[Message]) -> int:
         """Store visible messages when a listener starts, but never trigger AI."""
-        current = self.driver.get_current_conversation()
+        current = self._current_for_ingest(identity)
         self.verifier.verify_before_ingest(identity, current)
 
         inserted_count = 0
@@ -78,3 +78,9 @@ class MessageIngestionService:
             minute,
         ])
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    def _current_for_ingest(self, identity: ConversationIdentity) -> ConversationIdentity | None:
+        getter = getattr(self.driver, "get_current_conversation_for_ingest", None)
+        if callable(getter):
+            return getter(identity)
+        return self.driver.get_current_conversation()

@@ -47,6 +47,9 @@ class UiaWechatDriver(WechatDriver):
         self._window = None
         self._window_info: WindowInfo | None = None
         self._current_identity: ConversationIdentity | None = None
+        self._ingest_identity: ConversationIdentity | None = None
+        self._ingest_identity_verified_at = 0.0
+        self._ingest_identity_ttl_seconds = 12.0
         self.last_send_method: str | None = None
 
     def initialize(self) -> DriverStatus:
@@ -78,7 +81,7 @@ class UiaWechatDriver(WechatDriver):
                 self.restore_and_activate()
                 current = self.get_current_conversation()
                 if self._identity_title_matches(identity, current):
-                    self._current_identity = identity
+                    self._mark_identity_verified_for_ingest(identity)
                     return DriverStatus(ok=True, mode="uia", message=f"already on {identity.display_name}", details=self._window_details())
 
                 strategy = (self._locators or {}).get("switch_conversation") or {}
@@ -93,7 +96,7 @@ class UiaWechatDriver(WechatDriver):
                     raise DriverNotConfiguredError(
                         "切换会话后标题未验证为目标会话。请采集搜索结果和聊天标题控件，避免选中同名会话。"
                     )
-                self._current_identity = identity
+                self._mark_identity_verified_for_ingest(identity)
                 return DriverStatus(ok=True, mode="uia", message=f"switched to {identity.display_name}", details=self._window_details())
             except Exception as exc:
                 return DriverStatus(ok=False, mode="uia", message=str(exc), details=self._error_details("switch_conversation"))
@@ -102,27 +105,45 @@ class UiaWechatDriver(WechatDriver):
         with self._lock:
             deadline = time.time() + 1.0
             while time.time() < deadline:
-                try:
-                    self._ensure_ready()
-                    title_control = self._locate_required("chat_title")
-                    title = str(getattr(title_control, "Name", "") or "").strip()
-                    if title:
-                        if self._current_identity and title in {self._current_identity.display_name, self._current_identity.remark_name}:
-                            return self._current_identity
-                        return ConversationIdentity(
-                            conversation_id="current_unknown",
-                            conversation_type=self._current_identity.conversation_type if self._current_identity else ConversationType.FRIEND,
-                            display_name=title,
-                        )
-                except Exception:
-                    pass
+                self._ensure_ready()
+                current = self._current_conversation_from_locator("chat_title")
+                if current is not None:
+                    return current
+                current = self._current_conversation_from_locator("input_box")
+                if current is not None:
+                    return current
                 time.sleep(0.1)
             return None
+
+    def _current_conversation_from_locator(self, key: str) -> ConversationIdentity | None:
+        try:
+            control = self._locate_required(key)
+            title = sanitize_text(str(getattr(control, "Name", "") or "")).strip()
+            if not title:
+                return None
+            if self._current_identity and title in {self._current_identity.display_name, self._current_identity.remark_name}:
+                return self._current_identity
+            return ConversationIdentity(
+                conversation_id="current_unknown",
+                conversation_type=self._current_identity.conversation_type if self._current_identity else ConversationType.FRIEND,
+                display_name=title,
+            )
+        except Exception:
+            return None
+
+    def get_current_conversation_for_ingest(self, expected: ConversationIdentity) -> ConversationIdentity | None:
+        if self._recent_ingest_identity_matches(expected):
+            return self._ingest_identity
+        current = self.get_current_conversation()
+        if self._identity_title_matches(expected, current):
+            return current
+        return current
 
     def read_visible_text_messages(self, identity: ConversationIdentity) -> list[Message]:
         with self._lock:
             self._ensure_ready()
             message_list = self._locate_required("message_list")
+            self._mark_identity_verified_for_ingest(identity)
             messages: list[Message] = []
             for index, item in enumerate(self._message_items(message_list)):
                 content = sanitize_text(str(getattr(item, "Name", "") or "")).strip()
@@ -400,6 +421,18 @@ class UiaWechatDriver(WechatDriver):
         expected_names = {expected.display_name, expected.remark_name} - {None, ""}
         actual_names = {actual.display_name, actual.remark_name} - {None, ""}
         return bool(expected_names & actual_names)
+
+    def _mark_identity_verified_for_ingest(self, identity: ConversationIdentity) -> None:
+        self._current_identity = identity
+        self._ingest_identity = identity
+        self._ingest_identity_verified_at = time.monotonic()
+
+    def _recent_ingest_identity_matches(self, expected: ConversationIdentity) -> bool:
+        if self._ingest_identity is None:
+            return False
+        if time.monotonic() - self._ingest_identity_verified_at > self._ingest_identity_ttl_seconds:
+            return False
+        return self._identity_title_matches(expected, self._ingest_identity)
 
     def _activate_conversation_without_mouse(self, identity: ConversationIdentity) -> None:
         try:

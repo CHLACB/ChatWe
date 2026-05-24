@@ -118,3 +118,14 @@ def test_uia_visible_fingerprint_tolerates_unpaired_surrogate(tmp_path):
     fingerprint = driver._visible_message_fingerprint(identity, Item(), SenderType.OTHER, "bad \ud83d", 3)
 
     assert fingerprint
+
+
+def test_uia_ingest_identity_cache_is_short_lived(tmp_path):
+    driver = UiaWechatDriver(tmp_path / "missing_locators.json")
+    identity = ConversationIdentity("conv_friend", ConversationType.FRIEND, "AAxc")
+
+    driver._mark_identity_verified_for_ingest(identity)
+    assert driver.get_current_conversation_for_ingest(identity) == identity
+
+    driver._ingest_identity_verified_at -= driver._ingest_identity_ttl_seconds + 1
+    assert driver._recent_ingest_identity_matches(identity) is False
