@@ -181,6 +181,20 @@ APP_AI_MODEL=deepseek-v4-flash
 
 脚本会先做一次基线轮询，不回复旧消息。随后让该好友发一条新的文本消息，系统会走完整链路：可见消息读取 -> 入库 -> AI -> 发送队列 -> 微信发送 -> 自己消息入库。
 
+持续监听不要用一次性回归脚本，使用：
+
+```powershell
+.\.conda\python.exe scripts\uia_friend_listener_run.py "AAxc" --ai-mode openai_compatible
+```
+
+或：
+
+```powershell
+.\scripts\start_friend_listener.ps1 -Target "AAxc"
+```
+
+它会持续运行，AI 回复和自己消息入库后继续等待对方下一条消息。
+
 长时间监听稳定性检查不会发送回复：
 
 ```powershell

@@ -4,6 +4,8 @@ from fastapi.testclient import TestClient
 def build_client(tmp_path, monkeypatch):
     monkeypatch.setenv("APP_DRIVER_MODE", "mock")
     monkeypatch.setenv("APP_AI_MODE", "echo")
+    monkeypatch.setenv("APP_AI_CONFIG", str(tmp_path / "missing_ai.local.env"))
+    monkeypatch.setenv("APP_AI_API_KEY", "")
     monkeypatch.setenv("APP_DB_PATH", str(tmp_path / "api.sqlite3"))
     monkeypatch.setenv("APP_HISTORY_DB_PATH", str(tmp_path / "history.sqlite3"))
     from wx_ai_assistant.main import create_app

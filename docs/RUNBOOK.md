@@ -212,6 +212,8 @@ python scripts/uia_listener_poll_once_test.py AAxc 2
 
 ## 12. 真实好友新消息自动回复
 
+### 一次性回归测试
+
 确认 `config\ai.local.env` 已填写密钥后运行：
 
 ```powershell
@@ -232,6 +234,48 @@ python scripts/uia_listener_poll_once_test.py AAxc 2
 
 ```powershell
 .\.conda\python.exe scripts\uia_friend_auto_reply_test.py "AAxc" --ai-mode echo
+```
+
+### 持续监听运行
+
+一次性测试脚本成功回复一次后会退出。真正常驻运行请使用：
+
+```powershell
+.\.conda\python.exe scripts\uia_friend_listener_run.py "AAxc" --ai-mode openai_compatible --interval 1.5
+```
+
+调试短跑可以加：
+
+```powershell
+.\.conda\python.exe scripts\uia_friend_listener_run.py "AAxc" --ai-mode echo --max-seconds 20
+```
+
+或者用 PowerShell 包装脚本：
+
+```powershell
+.\scripts\start_friend_listener.ps1 -Target "AAxc"
+```
+
+也可以用 CMD 包装脚本：
+
+```bat
+scripts\start_friend_listener.cmd AAxc
+```
+
+持续监听脚本会：
+
+1. 启动真实 UIA driver。
+2. 启动发送队列后台 worker。
+3. 启动监听 worker。
+4. 第一轮只建立可见消息基线，不回复旧消息。
+5. 对方每发来一条新文本，都执行 `入库 -> AI -> 发送队列 -> 发送后验证 -> 自己消息入库`。
+6. 自己发送的消息会入库，但不会触发 AI。
+7. 程序不会在一次回复后退出，按 `Ctrl+C` 才停止。
+
+可以同时监听多个好友私聊：
+
+```powershell
+.\.conda\python.exe scripts\uia_friend_listener_run.py "AAxc" "文件传输助手" --ai-mode openai_compatible
 ```
 
 ## 13. 长时间稳定性检查
