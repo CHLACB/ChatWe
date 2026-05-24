@@ -166,10 +166,24 @@ analyze_intent
 → format_output
 ```
 
+第二阶段增加了可观测性和联系人策略：
+
+```text
+load_contact_policy
+→ analyze_intent
+→ decide_reply
+→ plan_response
+→ draft_reply
+→ auto_safety_check
+→ format_output
+```
+
+每次调用生成 `run_id`，节点输出先经过 Pydantic 模型校验，再写入 `ai_decision_logs`。日志失败只打印 warning，不影响最终 `{"messages":[...],"done":true}` 返回。
+
 约束：
 
 1. LangGraph 只负责决策和生成文本。
 2. LangGraph 不调用微信 Driver。
-3. LangGraph 不写数据库。
+3. LangGraph 不发送消息。
 4. LangGraph 不创建监听对象。
 5. 最终输出仍为 `{"messages":[...],"done":true}`，由应用服务层解析后进入发送队列。

@@ -7,6 +7,8 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from pydantic import BaseModel, Field
+
 from wx_ai_assistant.core.text_sanitize import sanitize_jsonable, sanitize_text
 
 
@@ -21,6 +23,42 @@ class LangGraphAiConfig:
     extra_body: str = ""
     proactive_mode: str = "off"
     max_messages_per_turn: int = 2
+    contact_policies_path: str = "./config/contact_policies.local.json"
+
+
+class ContactPolicy(BaseModel):
+    name: str = "default"
+    proactive_mode: str = "off"
+    max_messages_per_turn: int = 2
+    tone: str = "natural_short"
+    allow_questions: bool = True
+    notes: str = ""
+
+
+class IntentAnalysisOutput(BaseModel):
+    intent: str = ""
+    emotion: str = ""
+    user_need: str = ""
+    relationship_signal: str = ""
+
+
+class ReplyDecisionOutput(BaseModel):
+    should_reply: bool = False
+    no_reply_reason: str = ""
+
+
+class ResponsePlanOutput(BaseModel):
+    reply_strategy: str = ""
+
+
+class DraftReplyOutput(BaseModel):
+    draft_messages: list[str] = Field(default_factory=list)
+
+
+class SafetyCheckOutput(BaseModel):
+    safety_action: str = "allow"
+    safety_reasons: list[str] = Field(default_factory=list)
+    rewritten_messages: list[str] = Field(default_factory=list)
 
 
 class JsonChatClient(Protocol):

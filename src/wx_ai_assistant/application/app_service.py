@@ -233,6 +233,9 @@ class WechatApplicationService:
     def _generate_ai_turn(self, pending: PendingAiTurn) -> None:
         try:
             context = self.context_builder.build_context(pending.identity, pending.trigger_message)
+            identity_setter = getattr(self.ai, "set_contact_identity", None)
+            if callable(identity_setter):
+                identity_setter(pending.identity)
             raw_reply = self.ai.generate_reply(context=context, trigger_message=pending.trigger_message).strip()
             turn = self.ai_turn_parser.parse(raw_reply)
             self._record_ai_turn(pending, context, raw_reply, turn.messages, turn.done)
@@ -301,19 +304,22 @@ class WechatApplicationService:
         done: bool,
     ) -> None:
         context_preview = context[-self.diagnostics_context_chars :] if self.diagnostics_context_chars else ""
-        self._last_ai_turns.append(
-            {
-                "conversation_id": pending.identity.conversation_id,
-                "display_name": pending.identity.display_name,
-                "trigger_message_id": pending.trigger_message.message_id,
-                "trigger_content": pending.trigger_message.content,
-                "done": done,
-                "parsed_messages": parsed_messages,
-                "raw_reply": raw_reply,
-                "context_tail": context_preview,
-                "at_monotonic": round(time.monotonic(), 3),
-            }
-        )
+        decision = getattr(self.ai, "last_decision_snapshot", None)
+        entry = {
+            "conversation_id": pending.identity.conversation_id,
+            "display_name": pending.identity.display_name,
+            "trigger_message_id": pending.trigger_message.message_id,
+            "trigger_content": pending.trigger_message.content,
+            "done": done,
+            "parsed_messages": parsed_messages,
+            "raw_reply": raw_reply,
+            "context_tail": context_preview,
+            "at_monotonic": round(time.monotonic(), 3),
+        }
+        if isinstance(decision, dict):
+            entry.update(decision)
+            entry["trigger_content"] = pending.trigger_message.content
+        self._last_ai_turns.append(entry)
         self._last_ai_turns = self._last_ai_turns[-20:]
 
     def _record_ai_error(self, identity: ConversationIdentity, error: str) -> None:

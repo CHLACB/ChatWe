@@ -62,7 +62,7 @@ def main() -> int:
         driver,
         ingestion,
         context_builder,
-        build_ai_gateway(settings, force_mode=args.ai_mode),
+        build_ai_gateway(settings, force_mode=args.ai_mode, repository=repo),
         send_queue,
         AiTurnParser(max_messages=settings.ai_max_messages_per_turn, strict_json=settings.ai_strict_turn_json),
         ai_turn_quiet_seconds=settings.ai_turn_quiet_seconds,
@@ -182,8 +182,16 @@ def _print_status(repo: SqliteRepository, driver: UiaWechatDriver, service: Wech
             context_tail = str(latest_turn.get("context_tail", ""))
             print(
                 "debug last_ai_turn "
+                f"run_id={latest_turn.get('run_id')!r} "
                 f"target={latest_turn.get('display_name')!r} "
                 f"trigger={latest_turn.get('trigger_content')!r} "
+                f"intent={latest_turn.get('intent')!r} "
+                f"emotion={latest_turn.get('emotion')!r} "
+                f"should_reply={latest_turn.get('should_reply')!r} "
+                f"strategy={latest_turn.get('reply_strategy')!r} "
+                f"draft={latest_turn.get('draft_messages')!r} "
+                f"safety={latest_turn.get('safety_action')!r}:{latest_turn.get('safety_reasons')!r} "
+                f"final={latest_turn.get('final_messages')!r} "
                 f"parsed={latest_turn.get('parsed_messages')!r} "
                 f"raw={raw[:500]!r} "
                 f"context_tail={context_tail[-500:]!r}",

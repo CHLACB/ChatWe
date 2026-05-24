@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
+from typing import Any
 from uuid import uuid4
 
 from .enums import ConversationType, ListenStatus, MessageType, SenderType, MessageSource, SendTaskStatus
@@ -73,3 +74,28 @@ class SendTask:
     sent_at: Optional[datetime] = None
     error_message: Optional[str] = None
     send_task_id: str = field(default_factory=lambda: new_id("send"))
+
+
+@dataclass
+class AiDecisionLog:
+    run_id: str
+    conversation_id: str
+    trigger_message_id: str
+    trigger_message: str
+    display_name: str
+    contact_policy: dict[str, Any]
+    intent: str = ""
+    emotion: str = ""
+    user_need: str = ""
+    relationship_signal: str = ""
+    should_reply: bool = False
+    no_reply_reason: str = ""
+    reply_strategy: str = ""
+    draft_messages: list[str] = field(default_factory=list)
+    safety_action: str = ""
+    safety_reasons: list[str] = field(default_factory=list)
+    final_messages: list[str] = field(default_factory=list)
+    done: bool = True
+    node_errors: list[str] = field(default_factory=list)
+    raw_state: dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=utc_now)

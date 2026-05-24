@@ -57,7 +57,7 @@ def main() -> int:
         driver,
         ingestion,
         context_builder,
-        build_ai_gateway(settings, force_mode=args.ai_mode),
+        build_ai_gateway(settings, force_mode=args.ai_mode, repository=repo),
         send_queue,
         AiTurnParser(max_messages=settings.ai_max_messages_per_turn, strict_json=settings.ai_strict_turn_json),
         ai_turn_quiet_seconds=settings.ai_turn_quiet_seconds,

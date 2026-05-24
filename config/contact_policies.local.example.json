@@ -1,0 +1,24 @@
+{
+  "default": {
+    "proactive_mode": "off",
+    "max_messages_per_turn": 2,
+    "tone": "natural_short",
+    "allow_questions": true,
+    "notes": "默认联系人策略：被动、短句、不过度主动。"
+  },
+  "contacts": [
+    {
+      "display_name": "AAxc",
+      "remark_name": "AAxc",
+      "local_id": "AAxc",
+      "policy": {
+        "name": "close_friend",
+        "proactive_mode": "off",
+        "max_messages_per_turn": 2,
+        "tone": "casual_short",
+        "allow_questions": true,
+        "notes": "示例：熟人但仍保持被动回复。"
+      }
+    }
+  ]
+}

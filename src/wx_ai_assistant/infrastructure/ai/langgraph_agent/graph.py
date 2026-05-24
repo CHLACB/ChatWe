@@ -7,14 +7,15 @@ from wx_ai_assistant.infrastructure.ai.langgraph_agent.nodes import WechatReplyN
 from wx_ai_assistant.infrastructure.ai.langgraph_agent.state import WechatReplyState
 
 
-def build_wechat_reply_graph(client: JsonChatClient):
+def build_wechat_reply_graph(client: JsonChatClient, policy_loader=None):
     try:
         from langgraph.graph import END, START, StateGraph
     except ImportError as exc:
         raise RuntimeError("缺少 langgraph。请执行: pip install langgraph langchain langchain-openai") from exc
 
-    nodes = WechatReplyNodes(client)
+    nodes = WechatReplyNodes(client, policy_loader=policy_loader)
     graph = StateGraph(WechatReplyState)
+    graph.add_node("load_contact_policy", nodes.load_contact_policy)
     graph.add_node("analyze_intent", nodes.analyze_intent)
     graph.add_node("decide_reply", nodes.decide_reply)
     graph.add_node("plan_response", nodes.plan_response)
@@ -22,7 +23,8 @@ def build_wechat_reply_graph(client: JsonChatClient):
     graph.add_node("auto_safety_check", nodes.auto_safety_check)
     graph.add_node("format_output", nodes.format_output)
 
-    graph.add_edge(START, "analyze_intent")
+    graph.add_edge(START, "load_contact_policy")
+    graph.add_edge("load_contact_policy", "analyze_intent")
     graph.add_edge("analyze_intent", "decide_reply")
     graph.add_conditional_edges(
         "decide_reply",

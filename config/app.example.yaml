@@ -13,6 +13,7 @@ app:
   ai_duplicate_guard_seconds: 120.0
   diagnostics_context_chars: 1200
   ai_core_prompt_path: ./config/prompts/system.core.md
+  contact_policies_path: ./config/contact_policies.local.json
   history_mode: normalized_sqlite
   history_db_path: ./data/history_normalized.sqlite3
   wechat_locators: ./config/wechat_locators.local.json

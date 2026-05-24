@@ -6,6 +6,13 @@ from typing import Any
 
 from wx_ai_assistant.core.text_sanitize import sanitize_text
 from wx_ai_assistant.infrastructure.ai.langgraph_agent.models import JsonChatClient
+from wx_ai_assistant.infrastructure.ai.langgraph_agent.models import (
+    DraftReplyOutput,
+    IntentAnalysisOutput,
+    ReplyDecisionOutput,
+    ResponsePlanOutput,
+    SafetyCheckOutput,
+)
 from wx_ai_assistant.infrastructure.ai.langgraph_agent.prompts import (
     ANALYZE_INTENT_PROMPT,
     DECIDE_REPLY_PROMPT,
@@ -20,37 +27,63 @@ IDENTITY_WORDS = ("AI", "ai", "机器人", "自动回复", "助手", "程序", "
 
 
 class WechatReplyNodes:
-    def __init__(self, client: JsonChatClient):
+    def __init__(self, client: JsonChatClient, policy_loader=None):
         self.client = client
+        self.policy_loader = policy_loader
 
-    def analyze_intent(self, state: WechatReplyState) -> dict[str, Any]:
-        data = self.client.complete_json(ANALYZE_INTENT_PROMPT, self._base_user_prompt(state))
+    def load_contact_policy(self, state: WechatReplyState) -> dict[str, Any]:
+        if self.policy_loader is None:
+            return {"contact_policy": {}}
+        policy = self.policy_loader.load_for_identity(state.get("_identity"), str(state.get("display_name", "")))
         return {
-            "intent": sanitize_text(str(data.get("intent", ""))).strip(),
-            "emotion": sanitize_text(str(data.get("emotion", ""))).strip(),
-            "user_need": sanitize_text(str(data.get("user_need", ""))).strip(),
-            "relationship_signal": sanitize_text(str(data.get("relationship_signal", ""))).strip(),
+            "contact_policy": policy.model_dump(),
+            "proactive_mode": policy.proactive_mode,
+            "max_messages_per_turn": policy.max_messages_per_turn,
         }
 
+    def analyze_intent(self, state: WechatReplyState) -> dict[str, Any]:
+        output = self._validate_output(
+            IntentAnalysisOutput,
+            self.client.complete_json(ANALYZE_INTENT_PROMPT, self._base_user_prompt(state)),
+            state,
+            "analyze_intent",
+        )
+        return {key: sanitize_text(str(value)).strip() for key, value in output.model_dump().items()}
+
     def decide_reply(self, state: WechatReplyState) -> dict[str, Any]:
-        data = self.client.complete_json(DECIDE_REPLY_PROMPT, self._base_user_prompt(state, include_analysis=True))
+        output = self._validate_output(
+            ReplyDecisionOutput,
+            self.client.complete_json(DECIDE_REPLY_PROMPT, self._base_user_prompt(state, include_analysis=True)),
+            state,
+            "decide_reply",
+        )
         return {
-            "should_reply": bool(data.get("should_reply", False)),
-            "no_reply_reason": sanitize_text(str(data.get("no_reply_reason", ""))).strip(),
+            "should_reply": output.should_reply,
+            "no_reply_reason": sanitize_text(output.no_reply_reason).strip(),
         }
 
     def plan_response(self, state: WechatReplyState) -> dict[str, Any]:
-        data = self.client.complete_json(PLAN_RESPONSE_PROMPT, self._base_user_prompt(state, include_analysis=True))
-        return {"reply_strategy": sanitize_text(str(data.get("reply_strategy", ""))).strip()}
+        output = self._validate_output(
+            ResponsePlanOutput,
+            self.client.complete_json(PLAN_RESPONSE_PROMPT, self._base_user_prompt(state, include_analysis=True)),
+            state,
+            "plan_response",
+        )
+        return {"reply_strategy": sanitize_text(output.reply_strategy).strip()}
 
     def draft_reply(self, state: WechatReplyState) -> dict[str, Any]:
-        data = self.client.complete_json(
-            DRAFT_REPLY_PROMPT,
-            self._base_user_prompt(state, include_analysis=True)
-            + f"\n\nmax_messages_per_turn: {int(state.get('max_messages_per_turn') or 2)}",
+        output = self._validate_output(
+            DraftReplyOutput,
+            self.client.complete_json(
+                DRAFT_REPLY_PROMPT,
+                self._base_user_prompt(state, include_analysis=True)
+                + f"\n\nmax_messages_per_turn: {int(state.get('max_messages_per_turn') or 2)}",
+            ),
+            state,
+            "draft_reply",
         )
         max_messages = max(1, int(state.get("max_messages_per_turn") or 2))
-        return {"draft_messages": self._coerce_message_list(data.get("draft_messages"))[:max_messages]}
+        return {"draft_messages": self._coerce_message_list(output.draft_messages)[:max_messages]}
 
     def auto_safety_check(self, state: WechatReplyState) -> dict[str, Any]:
         raw_draft_messages = self._coerce_message_list(state.get("draft_messages"))
@@ -58,19 +91,22 @@ class WechatReplyNodes:
         if deterministic["safety_action"] != "allow":
             return deterministic
         draft_messages = self._normalize_messages(state.get("draft_messages"), state)
-        data = self.client.complete_json(
-            SAFETY_CHECK_PROMPT,
-            self._base_user_prompt(state, include_analysis=True)
-            + "\n\n草稿消息:\n"
-            + json.dumps(draft_messages, ensure_ascii=False),
+        output = self._validate_output(
+            SafetyCheckOutput,
+            self.client.complete_json(
+                SAFETY_CHECK_PROMPT,
+                self._base_user_prompt(state, include_analysis=True)
+                + "\n\n草稿消息:\n"
+                + json.dumps(draft_messages, ensure_ascii=False),
+            ),
+            state,
+            "auto_safety_check",
         )
-        action = str(data.get("safety_action", "allow")).strip().lower()
+        action = output.safety_action.strip().lower()
         if action not in {"allow", "rewrite", "skip"}:
             action = "rewrite"
-        reasons = data.get("safety_reasons") or []
-        if not isinstance(reasons, list):
-            reasons = [str(reasons)]
-        rewritten = self._normalize_messages(data.get("rewritten_messages"), state)
+        reasons = output.safety_reasons
+        rewritten = self._normalize_messages(output.rewritten_messages, state)
         if action == "allow":
             final_messages = draft_messages
         elif action == "rewrite":
@@ -94,9 +130,13 @@ class WechatReplyNodes:
 
     def _base_user_prompt(self, state: WechatReplyState, include_analysis: bool = False) -> str:
         lines = [
+            f"run_id: {state.get('run_id', '')}",
             f"proactive_mode: {state.get('proactive_mode', 'off')}",
             f"conversation_id: {state.get('conversation_id', '')}",
+            f"trigger_message_id: {state.get('trigger_message_id', '')}",
             f"display_name: {state.get('display_name', '')}",
+            "\n[联系人策略]",
+            json.dumps(state.get("contact_policy") or {}, ensure_ascii=False),
             "\n[上下文]",
             str(state.get("context", "")),
             "\n[触发消息]",
@@ -115,6 +155,15 @@ class WechatReplyNodes:
                 ]
             )
         return "\n".join(lines)
+
+    def _validate_output(self, model_cls, data: dict[str, Any], state: WechatReplyState, node_name: str):
+        try:
+            return model_cls.model_validate(data)
+        except Exception as exc:
+            errors = list(state.get("node_errors") or [])
+            errors.append(f"{node_name}: {exc}")
+            state["node_errors"] = errors
+            raise
 
     def _normalize_messages(self, value: Any, state: WechatReplyState) -> list[str]:
         raw_messages = self._coerce_message_list(value)

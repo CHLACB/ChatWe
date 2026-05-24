@@ -28,6 +28,7 @@ class Settings:
     ai_duplicate_guard_seconds: float
     diagnostics_context_chars: int
     ai_extra_body: str
+    contact_policies_path: Path
     history_mode: str
     history_db_path: Path
     wechat_locators: Path
@@ -64,6 +65,7 @@ def load_settings() -> Settings:
         ai_duplicate_guard_seconds=float(os.getenv("APP_AI_DUPLICATE_GUARD_SECONDS", "120.0")),
         diagnostics_context_chars=int(os.getenv("APP_DIAGNOSTICS_CONTEXT_CHARS", "1200")),
         ai_extra_body=os.getenv("APP_AI_EXTRA_BODY", "").strip(),
+        contact_policies_path=Path(os.getenv("APP_CONTACT_POLICIES_PATH", "./config/contact_policies.local.json")),
         history_mode=os.getenv("APP_HISTORY_MODE", "normalized_sqlite").strip().lower(),
         history_db_path=Path(os.getenv("APP_HISTORY_DB_PATH", "./data/history_normalized.sqlite3")),
         wechat_locators=Path(os.getenv("APP_WECHAT_LOCATORS", "./config/wechat_locators.local.json")),

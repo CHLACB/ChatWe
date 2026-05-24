@@ -6,9 +6,10 @@ from wx_ai_assistant.infrastructure.ai.langgraph_agent import LangGraphAiConfig,
 from wx_ai_assistant.infrastructure.ai.openai_compatible_ai import OpenAICompatibleAiGateway, OpenAICompatibleConfig
 from wx_ai_assistant.infrastructure.ai.prompt_library import compose_system_prompt
 from wx_ai_assistant.ports.ai_gateway import AiGateway
+from wx_ai_assistant.ports.repository import Repository
 
 
-def build_ai_gateway(settings: Settings, force_mode: str | None = None) -> AiGateway:
+def build_ai_gateway(settings: Settings, force_mode: str | None = None, repository: Repository | None = None) -> AiGateway:
     mode = (force_mode or settings.ai_mode).strip().lower()
     if mode == "echo":
         return EchoAiGateway()
@@ -24,7 +25,9 @@ def build_ai_gateway(settings: Settings, force_mode: str | None = None) -> AiGat
                 extra_body=settings.ai_extra_body,
                 proactive_mode=settings.ai_proactive_mode,
                 max_messages_per_turn=settings.ai_max_messages_per_turn,
-            )
+                contact_policies_path=str(settings.contact_policies_path),
+            ),
+            repository=repository,
         )
     if mode in {"openai_compatible", "openai-compatible", "qwen", "dashscope"}:
         return OpenAICompatibleAiGateway(

@@ -35,7 +35,7 @@ def create_app() -> FastAPI:
         driver = MockWechatDriver()
 
     history_reader = NormalizedSqliteHistoryReader(settings.history_db_path)
-    ai = build_ai_gateway(settings)
+    ai = build_ai_gateway(settings, repository=repo)
     verifier = ConversationVerifier()
     ingestion = MessageIngestionService(repo, driver, verifier)
     context_builder = ContextBuilder(repo, history_reader)

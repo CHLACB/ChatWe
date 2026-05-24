@@ -171,6 +171,22 @@ APP_AI_MODEL=deepseek-v4-flash
 
 `config\ai.local.env` 已被 `.gitignore` 忽略，不要提交密钥。AI 返回空消息数组时不会创建发送任务；非空文本只会进入发送队列。旧的 `APP_AI_MODE=openai_compatible` 仍保留为回退模式。
 
+联系人策略可以放在：
+
+```text
+config/contact_policies.local.json
+```
+
+可以从示例复制：
+
+```powershell
+copy config\contact_policies.local.example.json config\contact_policies.local.json
+```
+
+缺失时自动使用 default policy。策略可按 `display_name` / `remark_name` / `local_id` 命中，用来设置单个联系人的主动性、每轮最大消息数、语气备注等。
+
+每次 LangGraph 调用都会生成 `run_id`，并把完整节点决策保存到 `ai_decision_logs` 表。保存日志失败只会打印 warning，不影响微信回复发送。
+
 AI 对话提示词独立放在：
 
 ```text
@@ -202,6 +218,8 @@ APP_DIAGNOSTICS_CONTEXT_CHARS=1200
 如果 AI 请求失败或输出异常，本轮会跳过并记录诊断，监听不会因此退出。
 
 调试时可查看 `/system/diagnostics`，其中包含最近监听到的可见消息快照、pending AI 回合、最近一次 AI 输入尾部和模型原始输出。`APP_DIAGNOSTICS_CONTEXT_CHARS` 控制诊断里保留多少字符的上下文尾部。
+
+常驻脚本加 `-DebugTurns` 会输出 LangGraph 决策摘要：`run_id`、目标、触发消息、意图、情绪、是否回复、策略、草稿、安全动作和最终消息。
 
 常驻监听启动时默认会把上次遗留的 `pending/sending` 发送任务标记为失败，避免旧回复在重启后突然补发。确实要恢复旧任务时再加 `--resume-pending`。
 

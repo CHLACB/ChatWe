@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -10,7 +11,7 @@ from wx_ai_assistant.domain.enums import (
     ConversationType, ListenStatus, MessageSource, MessageType,
     SenderType, SendTaskStatus,
 )
-from wx_ai_assistant.domain.models import ConversationIdentity, ListenTarget, Message, SendTask, utc_now
+from wx_ai_assistant.domain.models import AiDecisionLog, ConversationIdentity, ListenTarget, Message, SendTask, utc_now
 
 
 def _dt_to_str(dt: datetime | None) -> str | None:
@@ -79,6 +80,30 @@ class SqliteRepository:
                 created_at TEXT NOT NULL,
                 sent_at TEXT,
                 error_message TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS ai_decision_logs (
+                run_id TEXT PRIMARY KEY,
+                conversation_id TEXT NOT NULL,
+                trigger_message_id TEXT NOT NULL,
+                trigger_message TEXT NOT NULL,
+                display_name TEXT NOT NULL,
+                contact_policy TEXT NOT NULL,
+                intent TEXT,
+                emotion TEXT,
+                user_need TEXT,
+                relationship_signal TEXT,
+                should_reply INTEGER NOT NULL,
+                no_reply_reason TEXT,
+                reply_strategy TEXT,
+                draft_messages TEXT NOT NULL,
+                safety_action TEXT,
+                safety_reasons TEXT NOT NULL,
+                final_messages TEXT NOT NULL,
+                done INTEGER NOT NULL,
+                node_errors TEXT NOT NULL,
+                raw_state TEXT NOT NULL,
+                created_at TEXT NOT NULL
             );
             """)
 
@@ -288,6 +313,44 @@ class SqliteRepository:
         with self._lock:
             row = self._conn.execute("SELECT * FROM send_tasks WHERE send_task_id=?", (send_task_id,)).fetchone()
         return self._row_to_send_task(row) if row else None
+
+    def save_ai_decision_log(self, log: AiDecisionLog) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                """
+                INSERT OR REPLACE INTO ai_decision_logs(
+                    run_id, conversation_id, trigger_message_id, trigger_message, display_name,
+                    contact_policy, intent, emotion, user_need, relationship_signal,
+                    should_reply, no_reply_reason, reply_strategy, draft_messages,
+                    safety_action, safety_reasons, final_messages, done, node_errors,
+                    raw_state, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    log.run_id,
+                    log.conversation_id,
+                    log.trigger_message_id,
+                    log.trigger_message,
+                    log.display_name,
+                    json.dumps(log.contact_policy, ensure_ascii=False),
+                    log.intent,
+                    log.emotion,
+                    log.user_need,
+                    log.relationship_signal,
+                    1 if log.should_reply else 0,
+                    log.no_reply_reason,
+                    log.reply_strategy,
+                    json.dumps(log.draft_messages, ensure_ascii=False),
+                    log.safety_action,
+                    json.dumps(log.safety_reasons, ensure_ascii=False),
+                    json.dumps(log.final_messages, ensure_ascii=False),
+                    1 if log.done else 0,
+                    json.dumps(log.node_errors, ensure_ascii=False),
+                    json.dumps(log.raw_state, ensure_ascii=False),
+                    _dt_to_str(log.created_at),
+                ),
+            )
 
     def _row_to_conversation(self, row: sqlite3.Row) -> ConversationIdentity:
         return ConversationIdentity(

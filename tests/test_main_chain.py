@@ -14,6 +14,7 @@ from wx_ai_assistant.infrastructure.persistence.sqlite_repository import SqliteR
 from wx_ai_assistant.infrastructure.wechat.mock_driver import MockWechatDriver
 from wx_ai_assistant.ports.history_reader import HistoryResult
 from wx_ai_assistant.ports.wechat_driver import DriverStatus, SendResult
+from scripts.uia_friend_listener_run import _print_status
 
 
 class StaticAi:
@@ -470,3 +471,31 @@ def test_mock_mode_main_chain_runs_through_queue_and_stores_self_message(tmp_pat
     messages = repo.list_recent_messages(identity.conversation_id)
     assert [m.sender_type for m in messages] == [SenderType.OTHER, SenderType.SELF]
     assert messages[-1].content == "收到：你好"
+
+
+def test_debug_turns_output_contains_run_id_and_intent(tmp_path, capsys):
+    service, repo, driver, _, _ = build_service(tmp_path, StaticAi(""))
+    service._last_ai_turns.append(
+        {
+            "run_id": "lg_test",
+            "display_name": "AAxc",
+            "trigger_content": "你有空吗",
+            "intent": "问是否有空",
+            "emotion": "中性",
+            "should_reply": True,
+            "reply_strategy": "简短确认",
+            "draft_messages": ["有空"],
+            "safety_action": "allow",
+            "safety_reasons": [],
+            "final_messages": ["有空"],
+            "parsed_messages": ["有空"],
+            "raw_reply": '{"messages":["有空"],"done":true}',
+            "context_tail": "ctx",
+        }
+    )
+
+    _print_status(repo, driver, service, debug_turns=True)
+
+    output = capsys.readouterr().out
+    assert "run_id='lg_test'" in output
+    assert "intent='问是否有空'" in output
