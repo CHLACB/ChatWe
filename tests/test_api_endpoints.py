@@ -43,3 +43,9 @@ def test_api_friend_only_send_task_query_and_poll_once(tmp_path, monkeypatch):
 
         response = client.get("/system/current-conversation")
         assert response.status_code == 200
+
+        response = client.get("/system/diagnostics")
+        assert response.status_code == 200
+        diagnostics = response.json()["data"]
+        assert diagnostics["settings"]["ai_api_key_configured"] is False
+        assert "send_task_counts" in diagnostics

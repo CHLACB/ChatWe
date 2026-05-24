@@ -54,6 +54,7 @@ foreach ($dll in @("UIAutomationClient_VC140_X64.dll", "UIAutomationClient_VC140
 
 $appExample = (Resolve-Path -LiteralPath "config\app.example.yaml").Path
 $locatorExample = (Resolve-Path -LiteralPath "config\wechat_locators.example.json").Path
+$aiExample = (Resolve-Path -LiteralPath "config\ai.local.example.env").Path
 $docsPath = (Resolve-Path -LiteralPath "docs").Path
 
 Invoke-Checked $Python (@(
@@ -68,6 +69,7 @@ Invoke-Checked $Python (@(
     "--collect-submodules", "wx_ai_assistant",
     "--add-data", "$appExample;config",
     "--add-data", "$locatorExample;config",
+    "--add-data", "$aiExample;config",
     "--add-data", "$docsPath;docs",
     "src\wx_ai_assistant\cli.py"
 ) + $binaryArgs)
@@ -76,13 +78,21 @@ Copy-Item -LiteralPath "build\pyinstaller_dist\ChatWe" -Destination "$OutDir\Cha
 Copy-Item -LiteralPath "scripts" -Destination "$OutDir\scripts" -Recurse -Force
 Copy-Item -LiteralPath "README.md" -Destination "$OutDir\README.md" -Force
 Copy-Item -LiteralPath "AGENTS.md" -Destination "$OutDir\AGENTS.md" -Force
+New-Item -ItemType Directory -Path "$OutDir\config" -Force | Out-Null
 
 @"
 @echo off
 set APP_DRIVER_MODE=uia
+set APP_AI_MODE=openai_compatible
+set APP_AI_CONFIG=config\ai.local.env
 set APP_WECHAT_LOCATORS=config\wechat_locators.local.json
 ChatWe\ChatWe.exe api
 "@ | Set-Content -LiteralPath "$OutDir\start_api_uia.bat" -Encoding ASCII
+
+Copy-Item -LiteralPath "config\ai.local.example.env" -Destination "$OutDir\config\ai.local.example.env" -Force
+if (-not (Test-Path -LiteralPath "$OutDir\config\ai.local.env")) {
+    Copy-Item -LiteralPath "config\ai.local.example.env" -Destination "$OutDir\config\ai.local.env" -Force
+}
 
 @"
 @echo off

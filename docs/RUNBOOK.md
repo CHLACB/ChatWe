@@ -68,6 +68,16 @@ GET  /send/tasks/{send_task_id}
 
 所有手动发送也只会创建发送任务，不会绕过发送队列。
 
+## 5.1 诊断状态
+
+调用：
+
+```text
+GET /system/diagnostics
+```
+
+返回当前 driver 状态、当前会话、监听对象、最近发送任务、每个监听对象最近消息，以及 AI 配置是否已填写。API 不返回密钥原文，只返回 `ai_api_key_configured=true/false`。
+
 ## 6. 创建 Mock 消息
 
 Mock 模式下调用：
@@ -101,6 +111,28 @@ APP_WECHAT_LOCATORS=./config/wechat_locators.local.json
 ```
 
 5. 重启服务。
+
+如果要启用千问/百炼 OpenAI 兼容 AI 网关：
+
+```powershell
+copy config\ai.local.example.env config\ai.local.env
+notepad config\ai.local.env
+```
+
+填写 `APP_AI_API_KEY` 后设置：
+
+```text
+APP_AI_MODE=openai_compatible
+APP_AI_CONFIG=./config/ai.local.env
+APP_AI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+APP_AI_MODEL=deepseek-v4-flash
+```
+
+也可以直接运行：
+
+```powershell
+.\scripts\start_chatwe_uia.ps1
+```
 
 ## 8. UIA 采集命令
 
@@ -177,3 +209,42 @@ python scripts/uia_listener_poll_once_test.py AAxc 2
 - 时间分隔或系统提示为 `sender=system`
 - 好友私聊中剩余文本为 `sender=other`
 - 首次轮询只建立基线，旧消息不会触发 AI；收到新好友文本后才会创建发送任务
+
+## 12. 真实好友新消息自动回复
+
+确认 `config\ai.local.env` 已填写密钥后运行：
+
+```powershell
+.\.conda\python.exe scripts\uia_friend_auto_reply_test.py "AAxc" --timeout 180
+```
+
+脚本流程：
+
+1. 初始化真实 UIA driver。
+2. 切到目标好友私聊。
+3. 第一轮只做基线入库，不回复旧消息。
+4. 等待该好友发来新的文本。
+5. 通过 AI 网关生成最终回复文本。
+6. 创建发送任务并由发送队列串行发送。
+7. 发送后验证成功则自己消息入库。
+
+如果只想验证链路不消耗真实模型额度：
+
+```powershell
+.\.conda\python.exe scripts\uia_friend_auto_reply_test.py "AAxc" --ai-mode echo
+```
+
+## 13. 长时间稳定性检查
+
+该脚本只监听和读取，不发送 AI 回复：
+
+```powershell
+.\.conda\python.exe scripts\uia_stability_watch.py "AAxc" --minutes 30 --interval 3
+```
+
+重点观察：
+
+- 每轮 `status=listening`
+- `current` 始终为目标好友
+- `messages` 不异常归零
+- 失败时输出 `stopped error=...`

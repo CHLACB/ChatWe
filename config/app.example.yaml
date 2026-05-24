@@ -2,7 +2,8 @@ app:
   driver_mode: mock       # mock | uia
   db_path: ./data/app.sqlite3
   poll_interval_seconds: 1.0
-  ai_mode: dummy          # dummy | http | custom
+  ai_mode: dummy          # dummy | echo | openai_compatible
+  ai_config: ./config/ai.local.env
   history_mode: normalized_sqlite
   history_db_path: ./data/history_normalized.sqlite3
   wechat_locators: ./config/wechat_locators.local.json

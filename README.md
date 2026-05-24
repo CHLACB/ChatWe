@@ -23,7 +23,7 @@
 3. 已验证的微信 3.9.12.56 主窗口类名候选 `WeChatMainWndForPC` 可以作为版本专用策略；搜索框、输入框、消息区等未知控件仍必须本机采集。
 4. 历史读取不猜测微信数据库结构，默认提供“标准化 SQLite 历史库”适配器。
 5. 第一阶段只支持文本。
-6. 只回复监听名单内的好友 / 群聊。
+6. 当前只回复监听名单内的好友私聊，群聊暂不支持。
 7. 自己消息入库，但不触发 AI。
 8. 自动发送，但必须经过发送队列和会话验证。
 
@@ -144,6 +144,54 @@ POST /send/text
 ```
 
 `APP_AI_MODE=echo` 时，对方文本消息会生成 echo 回复并进入发送队列。发送队列串行执行，发送成功后会把自己消息入库，但自己消息不会再次触发 AI。
+
+## 千问/百炼 OpenAI 兼容 AI 网关
+
+真实 AI 通过 `AiGateway` 接口接入，不会直接操作微信。百炼/DashScope OpenAI 兼容模式可使用：
+
+```text
+APP_AI_MODE=openai_compatible
+APP_AI_CONFIG=./config/ai.local.env
+```
+
+把示例文件复制为本机密钥文件：
+
+```powershell
+copy config\ai.local.example.env config\ai.local.env
+notepad config\ai.local.env
+```
+
+填入：
+
+```text
+APP_AI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+APP_AI_API_KEY=你的百炼APIKey
+APP_AI_MODEL=deepseek-v4-flash
+```
+
+`config\ai.local.env` 已被 `.gitignore` 忽略，不要提交密钥。AI 返回空文本时不会创建发送任务；非空文本只会进入发送队列。
+
+## 真实好友自动回复回归
+
+先打开微信并确认目标好友可搜索，然后运行：
+
+```powershell
+.\.conda\python.exe scripts\uia_friend_auto_reply_test.py "AAxc" --timeout 180
+```
+
+脚本会先做一次基线轮询，不回复旧消息。随后让该好友发一条新的文本消息，系统会走完整链路：可见消息读取 -> 入库 -> AI -> 发送队列 -> 微信发送 -> 自己消息入库。
+
+长时间监听稳定性检查不会发送回复：
+
+```powershell
+.\.conda\python.exe scripts\uia_stability_watch.py "AAxc" --minutes 30 --interval 3
+```
+
+诊断 API：
+
+```text
+GET /system/diagnostics
+```
 
 ## 历史消息读取
 

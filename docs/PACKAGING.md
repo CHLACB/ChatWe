@@ -22,6 +22,7 @@ dist\ChatWe-windows.zip
 - `start_api_mock.bat`：mock 模式启动
 - `start_api_uia.bat`：真实 UIA 模式启动
 - `selfcheck_uia.bat`：真实微信 UIA 自检入口
+- `config\ai.local.env`：本机 AI 密钥配置，默认复制自示例，解压后填写
 - `scripts\`：诊断脚本
 - `docs\`：运行和求真文档
 
@@ -35,6 +36,14 @@ dist\ChatWe-windows.zip
 ```bat
 selfcheck_uia.bat 文件传输助手
 ```
+
+启用真实 AI 前，打开并填写：
+
+```bat
+notepad config\ai.local.env
+```
+
+至少填写 `APP_AI_API_KEY`。默认配置使用百炼 OpenAI 兼容接口和 `deepseek-v4-flash`。
 
 自检会验证：
 

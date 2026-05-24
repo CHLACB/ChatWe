@@ -22,6 +22,7 @@ data/
 config/*.local.json
 config/*.local.yaml
 config/*.local.yml
+config/*.local.env
 
 docs/wechat_*_dump.md
 docs/wechat_*_nearby.md

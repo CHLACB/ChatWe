@@ -14,7 +14,7 @@ from wx_ai_assistant.application.send_queue import SendQueue
 from wx_ai_assistant.core.config import load_settings
 from wx_ai_assistant.core.response import ok
 from wx_ai_assistant.identity.verifier import ConversationVerifier
-from wx_ai_assistant.infrastructure.ai.dummy_ai import DummyAiGateway, EchoAiGateway
+from wx_ai_assistant.infrastructure.ai.factory import build_ai_gateway
 from wx_ai_assistant.infrastructure.history.normalized_sqlite_history_reader import NormalizedSqliteHistoryReader
 from wx_ai_assistant.infrastructure.persistence.sqlite_repository import SqliteRepository
 from wx_ai_assistant.infrastructure.wechat.mock_driver import MockWechatDriver
@@ -34,7 +34,7 @@ def create_app() -> FastAPI:
         driver = MockWechatDriver()
 
     history_reader = NormalizedSqliteHistoryReader(settings.history_db_path)
-    ai = EchoAiGateway() if settings.ai_mode == "echo" else DummyAiGateway()
+    ai = build_ai_gateway(settings)
     verifier = ConversationVerifier()
     ingestion = MessageIngestionService(repo, driver, verifier)
     context_builder = ContextBuilder(repo, history_reader)
@@ -72,7 +72,7 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     def health():
-        return ok({"status": "ok", "driver_mode": settings.driver_mode})
+        return ok({"status": "ok", "driver_mode": settings.driver_mode, "ai_mode": settings.ai_mode})
 
     @app.on_event("shutdown")
     def shutdown():

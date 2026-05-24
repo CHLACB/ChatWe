@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Callable
 from uuid import uuid5, NAMESPACE_URL
 
@@ -112,6 +113,39 @@ class WechatApplicationService:
 
     def current_conversation(self) -> ConversationIdentity | None:
         return self.driver.get_current_conversation()
+
+    def diagnostics_snapshot(self) -> dict:
+        targets = self.repo.list_listen_targets()
+        tasks = self.repo.list_send_tasks(limit=20)
+        pending = [task for task in tasks if task.status == SendTaskStatus.PENDING]
+        failed = [task for task in tasks if task.status == SendTaskStatus.FAILED]
+        recent_by_target = {
+            target.conversation.conversation_id: [
+                asdict(message) for message in self.repo.list_recent_messages(target.conversation.conversation_id, limit=10)
+            ]
+            for target in targets
+        }
+        try:
+            driver_status = self.driver.status().__dict__
+        except Exception as exc:
+            driver_status = {"ok": False, "message": str(exc)}
+        try:
+            current = self.driver.get_current_conversation()
+        except Exception:
+            current = None
+
+        return {
+            "driver_status": driver_status,
+            "current_conversation": asdict(current) if current else None,
+            "listen_targets": [asdict(target) for target in targets],
+            "send_task_counts": {
+                "recent_total": len(tasks),
+                "pending": len(pending),
+                "failed": len(failed),
+            },
+            "recent_send_tasks": [asdict(task) for task in tasks],
+            "recent_messages_by_target": recent_by_target,
+        }
 
     def create_mock_text_message(self, conversation_id: str, content: str, sender_name: str = "other") -> Message:
         identity = self.repo.get_conversation(conversation_id)

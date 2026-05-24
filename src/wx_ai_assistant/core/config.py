@@ -10,6 +10,15 @@ class Settings:
     db_path: Path
     poll_interval_seconds: float
     ai_mode: str
+    ai_config: Path
+    ai_base_url: str
+    ai_api_key: str
+    ai_model: str
+    ai_temperature: float
+    ai_max_tokens: int
+    ai_timeout_seconds: float
+    ai_system_prompt: str
+    ai_extra_body: str
     history_mode: str
     history_db_path: Path
     wechat_locators: Path
@@ -17,11 +26,26 @@ class Settings:
 
 def load_settings() -> Settings:
     load_dotenv()
+    ai_config = Path(os.getenv("APP_AI_CONFIG", "./config/ai.local.env"))
+    if ai_config.exists():
+        load_dotenv(ai_config, override=False)
     return Settings(
         driver_mode=os.getenv("APP_DRIVER_MODE", "mock").strip().lower(),
         db_path=Path(os.getenv("APP_DB_PATH", "./data/app.sqlite3")),
         poll_interval_seconds=float(os.getenv("APP_POLL_INTERVAL_SECONDS", "1.0")),
         ai_mode=os.getenv("APP_AI_MODE", "dummy").strip().lower(),
+        ai_config=ai_config,
+        ai_base_url=os.getenv("APP_AI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1").strip(),
+        ai_api_key=os.getenv("APP_AI_API_KEY", "").strip(),
+        ai_model=os.getenv("APP_AI_MODEL", "deepseek-v4-flash").strip(),
+        ai_temperature=float(os.getenv("APP_AI_TEMPERATURE", "0.3")),
+        ai_max_tokens=int(os.getenv("APP_AI_MAX_TOKENS", "800")),
+        ai_timeout_seconds=float(os.getenv("APP_AI_TIMEOUT_SECONDS", "30")),
+        ai_system_prompt=os.getenv(
+            "APP_AI_SYSTEM_PROMPT",
+            "你是一个微信私聊助手。请用自然、简洁、友好的中文回复。只输出最终要发送给对方的文本，不要输出分析过程。",
+        ).strip(),
+        ai_extra_body=os.getenv("APP_AI_EXTRA_BODY", "").strip(),
         history_mode=os.getenv("APP_HISTORY_MODE", "normalized_sqlite").strip().lower(),
         history_db_path=Path(os.getenv("APP_HISTORY_DB_PATH", "./data/history_normalized.sqlite3")),
         wechat_locators=Path(os.getenv("APP_WECHAT_LOCATORS", "./config/wechat_locators.local.json")),
