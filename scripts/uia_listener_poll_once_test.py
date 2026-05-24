@@ -51,6 +51,7 @@ def main() -> int:
         driver=driver,
         poll_interval_seconds=1.0,
         on_messages=app_service.handle_realtime_messages,
+        on_baseline_messages=app_service.handle_baseline_messages,
         driver_lock=threading.RLock(),
     )
     counts: list[int] = []

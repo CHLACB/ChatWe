@@ -127,13 +127,13 @@ class UiaWechatDriver(WechatDriver):
                 content = str(getattr(item, "Name", "") or "").strip()
                 if not content:
                     continue
-                sender_type = self._classify_sender(item)
+                sender_type = self._classify_sender(item, identity)
                 fingerprint = self._visible_message_fingerprint(identity, item, sender_type, content, index)
                 messages.append(
                     Message(
                         conversation_id=identity.conversation_id,
                         sender_type=sender_type,
-                        sender_name="需要补充控件信息" if sender_type == SenderType.UNKNOWN else None,
+                        sender_name=self._sender_name_for_visible_message(identity, sender_type),
                         message_type=MessageType.TEXT,
                         content=content,
                         raw_id=fingerprint,
@@ -386,7 +386,6 @@ class UiaWechatDriver(WechatDriver):
                 "uia-visible-v1",
                 WECHAT_VERSION,
                 identity.conversation_id,
-                sender_type.value,
                 content.strip(),
                 rect_text,
                 str(index),
@@ -506,7 +505,7 @@ class UiaWechatDriver(WechatDriver):
             and parent_top <= child_top <= child_bottom <= parent_bottom
         )
 
-    def _classify_sender(self, item: Any) -> SenderType:
+    def _classify_sender(self, item: Any, identity: ConversationIdentity | None = None) -> SenderType:
         locator = (self._locators or {}).get("message_item") or {}
         name = str(getattr(item, "Name", "") or "")
         class_name = str(getattr(item, "ClassName", "") or "")
@@ -524,7 +523,34 @@ class UiaWechatDriver(WechatDriver):
             return SenderType.SYSTEM
         if self._looks_like_time_marker(name):
             return SenderType.SYSTEM
+        if self._matches_system_text_pattern(name, locator):
+            return SenderType.SYSTEM
+        if locator.get("friend_unknown_text_as_other") and self._is_friend_identity(identity):
+            return SenderType.OTHER
         return SenderType.UNKNOWN
+
+    def _sender_name_for_visible_message(self, identity: ConversationIdentity, sender_type: SenderType) -> str | None:
+        if sender_type == SenderType.UNKNOWN:
+            return "需要补充控件信息"
+        if sender_type == SenderType.OTHER:
+            return identity.remark_name or identity.display_name
+        return None
+
+    def _matches_system_text_pattern(self, value: str, locator: dict[str, Any]) -> bool:
+        for pattern in locator.get("system_text_patterns") or []:
+            try:
+                if re.search(str(pattern), value):
+                    return True
+            except re.error:
+                continue
+        return False
+
+    def _is_friend_identity(self, identity: ConversationIdentity | None) -> bool:
+        if identity is not None:
+            return identity.conversation_type == ConversationType.FRIEND
+        if self._current_identity is not None:
+            return self._current_identity.conversation_type == ConversationType.FRIEND
+        return False
 
     def _detect_self_avatar_name(self) -> str | None:
         try:

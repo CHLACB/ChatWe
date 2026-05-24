@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from wx_ai_assistant.domain.enums import ConversationType
+from wx_ai_assistant.domain.enums import ConversationType, SenderType
 from wx_ai_assistant.domain.models import ConversationIdentity
 from wx_ai_assistant.infrastructure.wechat.uia_driver import UiaWechatDriver
 from wx_ai_assistant.ports.wechat_driver import DriverStatus, WindowInfo
@@ -38,3 +38,71 @@ def test_uia_locator_failure_returns_structured_status(tmp_path):
     assert status.details["missing_control"] == "switch_conversation"
     assert "dump_commands" in status.details
     assert "不能凭猜测" in status.message
+
+
+def test_uia_friend_visible_unknown_text_can_be_classified_as_other(tmp_path):
+    driver = UiaWechatDriver(tmp_path / "missing_locators.json")
+    driver._locators = {
+        "message_item": {
+            "friend_unknown_text_as_other": True,
+            "system_text_patterns": ["撤回了一条消息"],
+        }
+    }
+    identity = ConversationIdentity("conv_friend", ConversationType.FRIEND, "AAxc")
+
+    class Item:
+        Name = "你好"
+        ClassName = ""
+
+        def GetChildren(self):
+            return []
+
+    assert driver._classify_sender(Item(), identity) == SenderType.OTHER
+
+
+def test_uia_friend_visible_system_pattern_stays_system(tmp_path):
+    driver = UiaWechatDriver(tmp_path / "missing_locators.json")
+    driver._locators = {
+        "message_item": {
+            "friend_unknown_text_as_other": True,
+            "system_text_patterns": ["撤回了一条消息"],
+        }
+    }
+    identity = ConversationIdentity("conv_friend", ConversationType.FRIEND, "AAxc")
+
+    class Item:
+        Name = "AAxc 撤回了一条消息"
+        ClassName = ""
+
+        def GetChildren(self):
+            return []
+
+    assert driver._classify_sender(Item(), identity) == SenderType.SYSTEM
+
+
+def test_uia_group_visible_unknown_text_is_not_friend_fallback(tmp_path):
+    driver = UiaWechatDriver(tmp_path / "missing_locators.json")
+    driver._locators = {"message_item": {"friend_unknown_text_as_other": True}}
+    identity = ConversationIdentity("conv_group", ConversationType.GROUP, "测试群")
+
+    class Item:
+        Name = "你好"
+        ClassName = ""
+
+        def GetChildren(self):
+            return []
+
+    assert driver._classify_sender(Item(), identity) == SenderType.UNKNOWN
+
+
+def test_uia_visible_fingerprint_does_not_change_when_sender_classification_improves(tmp_path):
+    driver = UiaWechatDriver(tmp_path / "missing_locators.json")
+    identity = ConversationIdentity("conv_friend", ConversationType.FRIEND, "AAxc")
+
+    class Item:
+        BoundingRectangle = "Rect(100,200,300,260)[200x60]"
+
+    unknown_fp = driver._visible_message_fingerprint(identity, Item(), SenderType.UNKNOWN, "你好", 3)
+    other_fp = driver._visible_message_fingerprint(identity, Item(), SenderType.OTHER, "你好", 3)
+
+    assert unknown_fp == other_fp

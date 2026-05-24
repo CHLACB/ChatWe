@@ -164,3 +164,16 @@ python scripts/uia_listener_poll_once_test.py 文件传输助手 2
 - 第一次监听轮询只建立可见消息基线，不触发 AI
 - 文件传输助手内自己的消息应入库，但 `pending_send_tasks=0`
 - 连续两次轮询时 `stored_message_counts` 不应增长，表示同一屏可见旧消息没有重复入库或重复触发
+
+验证普通好友私聊时，把命令中的会话名换成目标好友名：
+
+```bash
+python scripts/uia_listener_poll_once_test.py AAxc 2
+```
+
+期望结果：
+
+- 可见的自己消息为 `sender=self`
+- 时间分隔或系统提示为 `sender=system`
+- 好友私聊中剩余文本为 `sender=other`
+- 首次轮询只建立基线，旧消息不会触发 AI；收到新好友文本后才会创建发送任务

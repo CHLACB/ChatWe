@@ -56,7 +56,13 @@ WECHAT_391256_BUILTIN_LOCATORS: dict[str, Any] = {
     },
     "message_item": {
         "self_avatar_region": "right",
-        "fallback": "未自动识别自己头像名时，self/other 可能返回 unknown；发送后验证会用内容兜底确认。",
+        "friend_unknown_text_as_other": True,
+        "system_text_patterns": [
+            r"撤回了一条消息",
+            r"你已添加了.*现在可以开始聊天了",
+            r"对方开启了朋友验证",
+        ],
+        "fallback": "私聊中非 self/system 文本按 other 处理；群聊不启用该规则。新增系统提示样式时补充 system_text_patterns。",
     },
     "input_box": {
         "control_type": "EditControl",

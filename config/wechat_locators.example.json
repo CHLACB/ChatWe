@@ -42,7 +42,13 @@
   "message_item": {
     "self_avatar_name": "填写自己的头像/昵称按钮 Name，例如从 dump 的自己消息右侧 ButtonControl 读取",
     "self_avatar_region": "right",
-    "fallback": "无法可靠区分时返回 sender_type=unknown，并补充控件信息"
+    "friend_unknown_text_as_other": true,
+    "system_text_patterns": [
+      "撤回了一条消息",
+      "你已添加了.*现在可以开始聊天了",
+      "对方开启了朋友验证"
+    ],
+    "fallback": "私聊中非 self/system 文本按 other 处理；群聊不启用该规则。新增系统提示样式时补充 system_text_patterns。"
   },
   "input_box": {
     "control_type": "EditControl",
