@@ -3,6 +3,7 @@ import json
 from wx_ai_assistant.domain.enums import MessageType, SenderType
 from wx_ai_assistant.domain.models import Message
 from wx_ai_assistant.infrastructure.ai.openai_compatible_ai import OpenAICompatibleAiGateway, OpenAICompatibleConfig
+from wx_ai_assistant.core.text_sanitize import sanitize_jsonable
 
 
 def test_openai_compatible_extracts_chat_completion_text():
@@ -41,3 +42,13 @@ def test_openai_compatible_missing_key_fails_before_network():
         assert "APP_AI_API_KEY" in str(exc)
     else:
         raise AssertionError("missing key should fail")
+
+
+def test_openai_compatible_sanitizes_unpaired_surrogates_before_json_encoding():
+    gateway = OpenAICompatibleAiGateway(OpenAICompatibleConfig(base_url="https://example.com/v1", api_key="sk", model="m"))
+    payload = {"messages": [{"content": "bad \ud83d"}]}
+
+    sanitized = sanitize_jsonable(payload)
+
+    assert sanitized["messages"][0]["content"] == "bad ?"
+    json.dumps(sanitized, ensure_ascii=False).encode("utf-8")

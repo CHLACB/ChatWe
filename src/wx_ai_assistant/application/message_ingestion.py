@@ -8,6 +8,7 @@ from wx_ai_assistant.domain.models import ConversationIdentity, Message
 from wx_ai_assistant.identity.verifier import ConversationVerifier
 from wx_ai_assistant.ports.repository import Repository
 from wx_ai_assistant.ports.wechat_driver import WechatDriver
+from wx_ai_assistant.core.text_sanitize import sanitize_text
 
 
 class MessageIngestionService:
@@ -24,6 +25,9 @@ class MessageIngestionService:
         trigger_messages: list[Message] = []
         for msg in messages:
             msg.conversation_id = identity.conversation_id
+            msg.content = sanitize_text(msg.content)
+            if msg.sender_name:
+                msg.sender_name = sanitize_text(msg.sender_name)
             if not msg.fingerprint:
                 msg.fingerprint = self._fingerprint(msg)
             inserted = self.repo.insert_message_if_new(msg)
@@ -39,6 +43,9 @@ class MessageIngestionService:
         inserted_count = 0
         for msg in messages:
             msg.conversation_id = identity.conversation_id
+            msg.content = sanitize_text(msg.content)
+            if msg.sender_name:
+                msg.sender_name = sanitize_text(msg.sender_name)
             if not msg.fingerprint:
                 msg.fingerprint = self._fingerprint(msg)
             if self.repo.insert_message_if_new(msg):
@@ -54,6 +61,7 @@ class MessageIngestionService:
             content=content,
             source=MessageSource.SENT,
         )
+        msg.content = sanitize_text(msg.content)
         msg.fingerprint = self._fingerprint(msg)
         self.repo.insert_message_if_new(msg)
         return msg

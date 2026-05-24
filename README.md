@@ -189,6 +189,14 @@ config/prompts/styles/natural_short.md
 
 程序不会按标点硬拆大段话，只会原样发送 AI 在 `messages` 数组里给出的边界。需要允许适度主动追问时，把 `config\ai.local.env` 里的 `APP_AI_PROACTIVE_MODE=off` 改成 `on`，但一轮仍然只调用一次 AI，发完就停。
 
+对方连续发送多条消息时，系统会先持续入库但不立刻调用 AI。默认最后一条对方消息后等待 5 秒，期间没有新消息才启动 AI：
+
+```text
+APP_AI_TURN_QUIET_SECONDS=5.0
+```
+
+如果 AI 请求失败或输出异常，本轮会跳过并记录诊断，监听不会因此退出。
+
 常驻监听启动时默认会把上次遗留的 `pending/sending` 发送任务标记为失败，避免旧回复在重启后突然补发。确实要恢复旧任务时再加 `--resume-pending`。
 
 ## 真实好友自动回复回归

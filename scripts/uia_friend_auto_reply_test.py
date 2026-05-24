@@ -60,6 +60,7 @@ def main() -> int:
         build_ai_gateway(settings, force_mode=args.ai_mode),
         send_queue,
         AiTurnParser(max_messages=settings.ai_max_messages_per_turn, strict_json=settings.ai_strict_turn_json),
+        ai_turn_quiet_seconds=settings.ai_turn_quiet_seconds,
     )
     send_queue.on_failed = lambda conversation_id, error: repo.set_listen_status(conversation_id, ListenStatus.STOPPED, error)
     target = service.add_listen_target(args.target, ConversationType.FRIEND, remark_name=args.target, local_id=args.target)
@@ -70,6 +71,7 @@ def main() -> int:
         poll_interval_seconds=args.interval,
         on_messages=service.handle_realtime_messages,
         on_baseline_messages=service.handle_baseline_messages,
+        on_after_poll=service.flush_ready_ai_turns,
         driver_lock=driver_lock,
     )
 

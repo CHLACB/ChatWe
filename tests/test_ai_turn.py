@@ -20,3 +20,9 @@ def test_ai_turn_parser_strict_json_rejects_plain_text():
 
     assert turn.done is False
     assert turn.messages == []
+
+
+def test_ai_turn_parser_sanitizes_unpaired_surrogates():
+    turn = AiTurnParser(max_messages=3, strict_json=False).parse("收到：\ud83d")
+
+    assert turn.messages == ["收到：?"]

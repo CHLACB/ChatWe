@@ -64,6 +64,7 @@ def main() -> int:
         build_ai_gateway(settings, force_mode=args.ai_mode),
         send_queue,
         AiTurnParser(max_messages=settings.ai_max_messages_per_turn, strict_json=settings.ai_strict_turn_json),
+        ai_turn_quiet_seconds=settings.ai_turn_quiet_seconds,
     )
     listener = ListenerManager(
         repo=repo,
@@ -71,6 +72,7 @@ def main() -> int:
         poll_interval_seconds=poll_interval,
         on_messages=service.handle_realtime_messages,
         on_baseline_messages=service.handle_baseline_messages,
+        on_after_poll=service.flush_ready_ai_turns,
         driver_lock=driver_lock,
     )
     service.bind_listener_controls(listener.start_target, listener.stop_target, listener.poll_once)
@@ -87,6 +89,7 @@ def main() -> int:
         f"ai_mode={args.ai_mode or settings.ai_mode} "
         f"model={settings.ai_model} "
         f"api_key_configured={bool(settings.ai_api_key)} "
+        f"turn_quiet_seconds={settings.ai_turn_quiet_seconds} "
         f"db={settings.db_path}",
         flush=True,
     )

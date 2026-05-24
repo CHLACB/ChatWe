@@ -4,6 +4,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from wx_ai_assistant.core.text_sanitize import sanitize_text
+
 
 @dataclass(frozen=True)
 class AiTurn:
@@ -35,13 +37,13 @@ class AiTurnParser:
                 messages = [messages]
             if not isinstance(messages, list):
                 messages = []
-            normalized = [str(item).strip() for item in messages if str(item).strip()]
+            normalized = [sanitize_text(str(item)).strip() for item in messages if sanitize_text(str(item)).strip()]
             if not done:
                 return AiTurn(messages=[], done=False)
             return AiTurn(messages=normalized[: self.max_messages], done=True)
         if self.strict_json:
             return AiTurn(messages=[], done=False)
-        return AiTurn(messages=[text], done=True)
+        return AiTurn(messages=[sanitize_text(text)], done=True)
 
     def _try_load_json(self, text: str) -> Any:
         try:

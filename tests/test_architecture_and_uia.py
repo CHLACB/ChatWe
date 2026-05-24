@@ -106,3 +106,15 @@ def test_uia_visible_fingerprint_does_not_change_when_sender_classification_impr
     other_fp = driver._visible_message_fingerprint(identity, Item(), SenderType.OTHER, "你好", 3)
 
     assert unknown_fp == other_fp
+
+
+def test_uia_visible_fingerprint_tolerates_unpaired_surrogate(tmp_path):
+    driver = UiaWechatDriver(tmp_path / "missing_locators.json")
+    identity = ConversationIdentity("conv_friend", ConversationType.FRIEND, "AAxc")
+
+    class Item:
+        BoundingRectangle = "Rect(100,200,300,260)[200x60]"
+
+    fingerprint = driver._visible_message_fingerprint(identity, Item(), SenderType.OTHER, "bad \ud83d", 3)
+
+    assert fingerprint

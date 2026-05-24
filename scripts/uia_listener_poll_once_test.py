@@ -52,6 +52,7 @@ def main() -> int:
         poll_interval_seconds=1.0,
         on_messages=app_service.handle_realtime_messages,
         on_baseline_messages=app_service.handle_baseline_messages,
+        on_after_poll=lambda: app_service.flush_ready_ai_turns(force=True),
         driver_lock=threading.RLock(),
     )
     counts: list[int] = []

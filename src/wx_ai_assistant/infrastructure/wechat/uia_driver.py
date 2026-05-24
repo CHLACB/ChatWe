@@ -9,6 +9,7 @@ from threading import RLock
 from typing import Any
 
 from wx_ai_assistant.core.exceptions import DriverNotConfiguredError
+from wx_ai_assistant.core.text_sanitize import sanitize_text
 from wx_ai_assistant.domain.enums import ConversationType, MessageType, SenderType
 from wx_ai_assistant.domain.models import ConversationIdentity, Message
 from wx_ai_assistant.infrastructure.wechat.uia_finder import (
@@ -124,7 +125,7 @@ class UiaWechatDriver(WechatDriver):
             message_list = self._locate_required("message_list")
             messages: list[Message] = []
             for index, item in enumerate(self._message_items(message_list)):
-                content = str(getattr(item, "Name", "") or "").strip()
+                content = sanitize_text(str(getattr(item, "Name", "") or "")).strip()
                 if not content:
                     continue
                 sender_type = self._classify_sender(item, identity)
@@ -386,7 +387,7 @@ class UiaWechatDriver(WechatDriver):
                 "uia-visible-v1",
                 WECHAT_VERSION,
                 identity.conversation_id,
-                content.strip(),
+                sanitize_text(content).strip(),
                 rect_text,
                 str(index),
             ]

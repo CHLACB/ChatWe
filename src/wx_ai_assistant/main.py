@@ -51,6 +51,7 @@ def create_app() -> FastAPI:
         ai,
         send_queue,
         AiTurnParser(max_messages=settings.ai_max_messages_per_turn, strict_json=settings.ai_strict_turn_json),
+        ai_turn_quiet_seconds=settings.ai_turn_quiet_seconds,
     )
 
     listener_manager = ListenerManager(
@@ -59,6 +60,7 @@ def create_app() -> FastAPI:
         poll_interval_seconds=settings.poll_interval_seconds,
         on_messages=app_service.handle_realtime_messages,
         on_baseline_messages=app_service.handle_baseline_messages,
+        on_after_poll=app_service.flush_ready_ai_turns,
         driver_lock=driver_lock,
     )
     app_service.bind_listener_controls(listener_manager.start_target, listener_manager.stop_target, listener_manager.poll_once)

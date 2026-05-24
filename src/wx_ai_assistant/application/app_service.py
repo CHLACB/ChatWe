@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
+import time
 from typing import Callable
 from uuid import uuid5, NAMESPACE_URL
 
@@ -15,6 +16,13 @@ from wx_ai_assistant.ports.repository import Repository
 from wx_ai_assistant.ports.wechat_driver import WechatDriver
 
 
+@dataclass
+class PendingAiTurn:
+    identity: ConversationIdentity
+    trigger_message: Message
+    last_other_message_at: float
+
+
 class WechatApplicationService:
     def __init__(
         self,
@@ -25,6 +33,7 @@ class WechatApplicationService:
         ai: AiGateway,
         send_queue: SendQueue,
         ai_turn_parser: AiTurnParser | None = None,
+        ai_turn_quiet_seconds: float = 0.0,
     ):
         self.repo = repo
         self.driver = driver
@@ -33,6 +42,9 @@ class WechatApplicationService:
         self.ai = ai
         self.send_queue = send_queue
         self.ai_turn_parser = ai_turn_parser or AiTurnParser(strict_json=False)
+        self.ai_turn_quiet_seconds = max(0.0, ai_turn_quiet_seconds)
+        self._pending_ai_turns: dict[str, PendingAiTurn] = {}
+        self._last_ai_errors: list[dict] = []
         self._start_listener: Callable[[str], None] | None = None
         self._stop_listener: Callable[[str, str | None], None] | None = None
         self._poll_once: Callable[[], None] | None = None
@@ -148,6 +160,17 @@ class WechatApplicationService:
             },
             "recent_send_tasks": [asdict(task) for task in tasks],
             "recent_messages_by_target": recent_by_target,
+            "pending_ai_turns": [
+                {
+                    "conversation_id": pending.identity.conversation_id,
+                    "display_name": pending.identity.display_name,
+                    "trigger_message_id": pending.trigger_message.message_id,
+                    "trigger_content": pending.trigger_message.content,
+                    "age_seconds": round(time.monotonic() - pending.last_other_message_at, 3),
+                }
+                for pending in self._pending_ai_turns.values()
+            ],
+            "last_ai_errors": self._last_ai_errors[-10:],
         }
 
     def create_mock_text_message(self, conversation_id: str, content: str, sender_name: str = "other") -> Message:
@@ -172,13 +195,53 @@ class WechatApplicationService:
         if not triggers:
             return
         msg = triggers[-1]
-        context = self.context_builder.build_context(identity, msg)
-        raw_reply = self.ai.generate_reply(context=context, trigger_message=msg).strip()
-        turn = self.ai_turn_parser.parse(raw_reply)
-        if not turn.done:
-            return
-        for reply in turn.messages:
-            self.send_queue.enqueue(identity.conversation_id, reply, trigger_message_id=msg.message_id)
+        self._pending_ai_turns[identity.conversation_id] = PendingAiTurn(
+            identity=identity,
+            trigger_message=msg,
+            last_other_message_at=time.monotonic(),
+        )
+
+    def flush_ready_ai_turns(self, force: bool = False) -> None:
+        now = time.monotonic()
+        ready_ids = [
+            conversation_id
+            for conversation_id, pending in self._pending_ai_turns.items()
+            if force or now - pending.last_other_message_at >= self.ai_turn_quiet_seconds
+        ]
+        for conversation_id in ready_ids:
+            pending = self._pending_ai_turns.pop(conversation_id, None)
+            if pending is None:
+                continue
+            self._generate_ai_turn(pending)
+
+    def _generate_ai_turn(self, pending: PendingAiTurn) -> None:
+        try:
+            context = self.context_builder.build_context(pending.identity, pending.trigger_message)
+            raw_reply = self.ai.generate_reply(context=context, trigger_message=pending.trigger_message).strip()
+            turn = self.ai_turn_parser.parse(raw_reply)
+            if not turn.done:
+                self._record_ai_error(pending.identity, "AI 未按本轮完成协议输出 done=true，已跳过本轮。")
+                return
+            for reply in turn.messages:
+                self.send_queue.enqueue(
+                    pending.identity.conversation_id,
+                    reply,
+                    trigger_message_id=pending.trigger_message.message_id,
+                )
+        except Exception as exc:
+            self._record_ai_error(pending.identity, str(exc))
+
+    def _record_ai_error(self, identity: ConversationIdentity, error: str) -> None:
+        self._last_ai_errors.append(
+            {
+                "conversation_id": identity.conversation_id,
+                "display_name": identity.display_name,
+                "error": error,
+                "at_monotonic": round(time.monotonic(), 3),
+            }
+        )
+        self._last_ai_errors = self._last_ai_errors[-20:]
+        print(f"ai_error target={identity.display_name!r} error={error}", flush=True)
 
     def handle_baseline_messages(self, identity: ConversationIdentity, messages: list[Message]) -> None:
         if self.repo.get_listen_target(identity.conversation_id) is None:

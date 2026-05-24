@@ -26,6 +26,15 @@ class StaticAi:
         return self.text
 
 
+class RaisingAi:
+    def __init__(self):
+        self.calls = 0
+
+    def generate_reply(self, context: str, trigger_message: Message) -> str:
+        self.calls += 1
+        raise RuntimeError("ai unavailable")
+
+
 class FailingHistory:
     def read_history(self, identity: ConversationIdentity, limit: int = 100) -> HistoryResult:
         return HistoryResult(ok=False, messages=[], error="history unavailable")
@@ -81,6 +90,7 @@ def test_other_message_triggers_ai_and_nonempty_reply_creates_send_task(tmp_path
     service, repo, _, _, identity = build_service(tmp_path, ai)
 
     service.handle_realtime_messages(identity, [other_text(identity)])
+    service.flush_ready_ai_turns(force=True)
 
     tasks = repo.list_pending_send_tasks()
     assert ai.calls == 1
@@ -94,6 +104,7 @@ def test_ai_json_messages_are_sent_as_ai_chosen_boundaries(tmp_path):
     service.ai_turn_parser = AiTurnParser(max_messages=3, strict_json=True)
 
     service.handle_realtime_messages(identity, [other_text(identity)])
+    service.flush_ready_ai_turns(force=True)
 
     tasks = repo.list_pending_send_tasks()
     assert ai.calls == 1
@@ -106,6 +117,7 @@ def test_multiple_new_messages_in_one_poll_create_one_ai_turn(tmp_path):
     service.ai_turn_parser = AiTurnParser(max_messages=3, strict_json=True)
 
     service.handle_realtime_messages(identity, [other_text(identity, "第一句"), other_text(identity, "第二句")])
+    service.flush_ready_ai_turns(force=True)
 
     assert ai.calls == 1
     tasks = repo.list_pending_send_tasks()
@@ -119,9 +131,42 @@ def test_ai_done_false_does_not_send_or_continue(tmp_path):
     service.ai_turn_parser = AiTurnParser(max_messages=3, strict_json=True)
 
     service.handle_realtime_messages(identity, [other_text(identity)])
+    service.flush_ready_ai_turns(force=True)
 
     assert ai.calls == 1
     assert repo.list_pending_send_tasks() == []
+
+
+def test_ai_turn_waits_for_quiet_window_before_generating(tmp_path):
+    ai = StaticAi('{"messages":["收到"],"done":true}')
+    service, repo, _, _, identity = build_service(tmp_path, ai)
+    service.ai_turn_parser = AiTurnParser(max_messages=3, strict_json=True)
+    service.ai_turn_quiet_seconds = 5.0
+
+    service.handle_realtime_messages(identity, [other_text(identity)])
+    service.flush_ready_ai_turns()
+
+    assert ai.calls == 0
+    assert repo.list_pending_send_tasks() == []
+
+    pending = service._pending_ai_turns[identity.conversation_id]
+    pending.last_other_message_at -= 5.1
+    service.flush_ready_ai_turns()
+
+    assert ai.calls == 1
+    assert [task.content for task in repo.list_pending_send_tasks()] == ["收到"]
+
+
+def test_ai_error_is_recorded_without_raising_to_listener(tmp_path):
+    ai = RaisingAi()
+    service, repo, _, _, identity = build_service(tmp_path, ai)
+
+    service.handle_realtime_messages(identity, [other_text(identity)])
+    service.flush_ready_ai_turns(force=True)
+
+    assert ai.calls == 1
+    assert repo.list_pending_send_tasks() == []
+    assert service._last_ai_errors[-1]["error"] == "ai unavailable"
 
 
 def test_repeated_realtime_fingerprint_does_not_trigger_ai_twice(tmp_path):
@@ -134,7 +179,9 @@ def test_repeated_realtime_fingerprint_does_not_trigger_ai_twice(tmp_path):
     second.fingerprint = "uia-visible-stable-fingerprint"
 
     service.handle_realtime_messages(identity, [first])
+    service.flush_ready_ai_turns(force=True)
     service.handle_realtime_messages(identity, [second])
+    service.flush_ready_ai_turns(force=True)
 
     assert ai.calls == 1
     assert len(repo.list_recent_messages(identity.conversation_id)) == 1
@@ -167,6 +214,7 @@ def test_empty_ai_reply_does_not_create_send_task(tmp_path):
     service, repo, _, _, identity = build_service(tmp_path, StaticAi("  "))
 
     service.handle_realtime_messages(identity, [other_text(identity)])
+    service.flush_ready_ai_turns(force=True)
 
     assert repo.list_pending_send_tasks() == []
 
@@ -253,6 +301,7 @@ def test_history_failure_does_not_block_realtime_ai_flow(tmp_path):
     service, repo, _, _, identity = build_service(tmp_path, StaticAi("reply"))
 
     service.handle_realtime_messages(identity, [other_text(identity)])
+    service.flush_ready_ai_turns(force=True)
 
     assert len(repo.list_pending_send_tasks()) == 1
 
@@ -288,6 +337,7 @@ def test_listener_first_successful_poll_baselines_visible_messages_without_ai(tm
         1,
         service.handle_realtime_messages,
         on_baseline_messages=service.handle_baseline_messages,
+        on_after_poll=lambda: service.flush_ready_ai_turns(force=True),
     )
     listener.poll_once()
 
@@ -308,6 +358,7 @@ def test_mock_mode_main_chain_runs_through_queue_and_stores_self_message(tmp_pat
     service, repo, driver, queue, identity = build_service(tmp_path, EchoAiGateway())
 
     service.create_mock_text_message(identity.conversation_id, "你好", "friend")
+    service.flush_ready_ai_turns(force=True)
     task = repo.list_pending_send_tasks()[0]
     queue._process(task)
 

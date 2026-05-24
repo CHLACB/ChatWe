@@ -9,6 +9,7 @@ app:
   ai_proactive_mode: off  # off | on
   ai_max_messages_per_turn: 3
   ai_strict_turn_json: true
+  ai_turn_quiet_seconds: 5.0
   ai_core_prompt_path: ./config/prompts/system.core.md
   history_mode: normalized_sqlite
   history_db_path: ./data/history_normalized.sqlite3

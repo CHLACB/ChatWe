@@ -150,6 +150,7 @@ APP_AI_PROACTIVE_MODE=off
 APP_AI_MAX_MESSAGES_PER_TURN=3
 APP_AI_STRICT_TURN_JSON=true
 APP_AI_CORE_PROMPT_PATH=./config/prompts/system.core.md
+APP_AI_TURN_QUIET_SECONDS=5.0
 ```
 
 默认 `APP_AI_PROACTIVE_MODE=off` 是被动模式：只回应对方刚发来的内容，本轮回复完就停。改成 `on` 后允许适度主动追问，但仍然只输出一次 `messages` 数组，不会一直自我续写。
@@ -161,6 +162,15 @@ AI 输出必须由模型自己决定微信消息边界：
 ```
 
 程序不会按标点拆分一大段；只会发送 `messages` 数组里的每个元素。`done=true` 表示本轮回复完成，系统等待对方下一条消息。
+
+连续消息合并规则：
+
+- 对方新消息会立即入库。
+- 入库后先等待 `APP_AI_TURN_QUIET_SECONDS` 秒。
+- 等待期间如果又收到新消息，重新计时。
+- 静默窗口结束后才启动 AI。
+- AI 已经开始分析后，如果对方又发新消息，不中断本轮 AI；新消息会进入下一轮回复。
+- AI 请求失败不会停止监听，只会记录 `ai_error` 并跳过本轮。
 
 也可以直接运行：
 

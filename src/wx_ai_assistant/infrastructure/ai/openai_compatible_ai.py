@@ -8,6 +8,7 @@ from typing import Any
 
 from wx_ai_assistant.domain.models import Message
 from wx_ai_assistant.ports.ai_gateway import AiGateway
+from wx_ai_assistant.core.text_sanitize import sanitize_jsonable
 
 
 @dataclass(frozen=True)
@@ -39,7 +40,7 @@ class OpenAICompatibleAiGateway(AiGateway):
         payload = self._build_payload(context, trigger_message)
         request = urllib.request.Request(
             self._chat_completions_url(),
-            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            data=json.dumps(sanitize_jsonable(payload), ensure_ascii=False).encode("utf-8"),
             headers={
                 "Authorization": f"Bearer {self.config.api_key}",
                 "Content-Type": "application/json",

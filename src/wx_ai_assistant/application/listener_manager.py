@@ -25,6 +25,7 @@ class ListenerManager:
         poll_interval_seconds: float,
         on_messages: Callable[[ConversationIdentity, list[Message]], None],
         on_baseline_messages: Callable[[ConversationIdentity, list[Message]], None] | None = None,
+        on_after_poll: Callable[[], None] | None = None,
         driver_lock: threading.RLock | None = None,
     ):
         self.repo = repo
@@ -32,6 +33,7 @@ class ListenerManager:
         self.poll_interval_seconds = poll_interval_seconds
         self.on_messages = on_messages
         self.on_baseline_messages = on_baseline_messages or on_messages
+        self.on_after_poll = on_after_poll
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._driver_lock = driver_lock or threading.RLock()
@@ -73,6 +75,8 @@ class ListenerManager:
                     self.on_messages(target.conversation, messages)
             except Exception as exc:
                 self.stop_target(target.conversation.conversation_id, str(exc))
+        if self.on_after_poll:
+            self.on_after_poll()
 
     def _run(self) -> None:
         while not self._stop.is_set():
