@@ -25,6 +25,8 @@ class Settings:
     ai_max_messages_per_turn: int
     ai_strict_turn_json: bool
     ai_turn_quiet_seconds: float
+    ai_duplicate_guard_seconds: float
+    diagnostics_context_chars: int
     ai_extra_body: str
     history_mode: str
     history_db_path: Path
@@ -59,6 +61,8 @@ def load_settings() -> Settings:
         ai_max_messages_per_turn=int(os.getenv("APP_AI_MAX_MESSAGES_PER_TURN", "3")),
         ai_strict_turn_json=os.getenv("APP_AI_STRICT_TURN_JSON", "true").strip().lower() in {"1", "true", "yes", "on"},
         ai_turn_quiet_seconds=float(os.getenv("APP_AI_TURN_QUIET_SECONDS", "5.0")),
+        ai_duplicate_guard_seconds=float(os.getenv("APP_AI_DUPLICATE_GUARD_SECONDS", "120.0")),
+        diagnostics_context_chars=int(os.getenv("APP_DIAGNOSTICS_CONTEXT_CHARS", "1200")),
         ai_extra_body=os.getenv("APP_AI_EXTRA_BODY", "").strip(),
         history_mode=os.getenv("APP_HISTORY_MODE", "normalized_sqlite").strip().lower(),
         history_db_path=Path(os.getenv("APP_HISTORY_DB_PATH", "./data/history_normalized.sqlite3")),

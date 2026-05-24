@@ -151,6 +151,8 @@ APP_AI_MAX_MESSAGES_PER_TURN=3
 APP_AI_STRICT_TURN_JSON=true
 APP_AI_CORE_PROMPT_PATH=./config/prompts/system.core.md
 APP_AI_TURN_QUIET_SECONDS=5.0
+APP_AI_DUPLICATE_GUARD_SECONDS=120.0
+APP_DIAGNOSTICS_CONTEXT_CHARS=1200
 ```
 
 默认 `APP_AI_PROACTIVE_MODE=off` 是被动模式：只回应对方刚发来的内容，本轮回复完就停。改成 `on` 后允许适度主动追问，但仍然只输出一次 `messages` 数组，不会一直自我续写。
@@ -170,7 +172,15 @@ AI 输出必须由模型自己决定微信消息边界：
 - 等待期间如果又收到新消息，重新计时。
 - 静默窗口结束后才启动 AI。
 - AI 已经开始分析后，如果对方又发新消息，不中断本轮 AI；新消息会进入下一轮回复。
+- 发送自己的回复后，只有最后一条自己消息之后的新对方文本才会再次触发 AI。
+- `APP_AI_DUPLICATE_GUARD_SECONDS` 会过滤短时间内同一对方同一内容的重复触发，避免 UIA 坐标变化导致重复回复。
 - AI 请求失败不会停止监听，只会记录 `ai_error` 并跳过本轮。
+
+诊断信息：
+
+- FastAPI 模式访问 `GET /system/diagnostics`。
+- 返回最近监听快照 `last_visible_snapshots`、待处理回合 `pending_ai_turns`、最近 AI 输入/输出 `last_ai_turns`。
+- `APP_DIAGNOSTICS_CONTEXT_CHARS` 控制诊断里展示的 AI 上下文尾部长度，设为 `0` 可关闭上下文片段输出。
 
 也可以直接运行：
 

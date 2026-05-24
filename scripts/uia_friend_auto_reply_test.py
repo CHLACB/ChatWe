@@ -61,6 +61,8 @@ def main() -> int:
         send_queue,
         AiTurnParser(max_messages=settings.ai_max_messages_per_turn, strict_json=settings.ai_strict_turn_json),
         ai_turn_quiet_seconds=settings.ai_turn_quiet_seconds,
+        ai_duplicate_guard_seconds=settings.ai_duplicate_guard_seconds,
+        diagnostics_context_chars=settings.diagnostics_context_chars,
     )
     send_queue.on_failed = lambda conversation_id, error: repo.set_listen_status(conversation_id, ListenStatus.STOPPED, error)
     target = service.add_listen_target(args.target, ConversationType.FRIEND, remark_name=args.target, local_id=args.target)

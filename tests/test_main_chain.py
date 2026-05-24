@@ -208,6 +208,41 @@ def test_repeated_realtime_fingerprint_does_not_trigger_ai_twice(tmp_path):
     assert len(repo.list_pending_send_tasks()) == 1
 
 
+def test_old_other_before_visible_self_does_not_trigger_again(tmp_path):
+    ai = StaticAi("reply")
+    service, repo, _, _, identity = build_service(tmp_path, ai)
+
+    service.handle_realtime_messages(identity, [other_text(identity, "吃饭去了")])
+    service.flush_ready_ai_turns(force=True)
+
+    old_other_shifted = other_text(identity, "吃饭去了")
+    old_other_shifted.fingerprint = "same-content-new-uia-position"
+    service.handle_realtime_messages(identity, [old_other_shifted, self_text(identity, "好，回头聊")])
+    service.flush_ready_ai_turns(force=True)
+
+    assert ai.calls == 1
+    assert [task.content for task in repo.list_pending_send_tasks()] == ["reply"]
+
+
+def test_duplicate_guard_suppresses_same_other_content_with_changed_fingerprint(tmp_path):
+    ai = StaticAi("reply")
+    service, repo, _, _, identity = build_service(tmp_path, ai)
+    service.ai_duplicate_guard_seconds = 120.0
+
+    first = other_text(identity, "同一句")
+    first.fingerprint = "first-position"
+    second = other_text(identity, "同一句")
+    second.fingerprint = "second-position"
+
+    service.handle_realtime_messages(identity, [first])
+    service.flush_ready_ai_turns(force=True)
+    service.handle_realtime_messages(identity, [second])
+    service.flush_ready_ai_turns(force=True)
+
+    assert ai.calls == 1
+    assert len(repo.list_pending_send_tasks()) == 1
+
+
 def test_unlisted_conversation_is_not_processed(tmp_path):
     service, repo, driver, _, _ = build_service(tmp_path, StaticAi("reply"))
     unknown = ConversationIdentity("conv_unknown", ConversationType.FRIEND, "陌生人")

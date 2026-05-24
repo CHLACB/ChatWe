@@ -22,6 +22,7 @@ class MessageIngestionService:
         current = self._current_for_ingest(identity)
         self.verifier.verify_before_ingest(identity, current)
 
+        triggerable_ids = {id(msg) for msg in self._messages_after_last_self(messages)}
         trigger_messages: list[Message] = []
         for msg in messages:
             msg.conversation_id = identity.conversation_id
@@ -31,7 +32,12 @@ class MessageIngestionService:
             if not msg.fingerprint:
                 msg.fingerprint = self._fingerprint(msg)
             inserted = self.repo.insert_message_if_new(msg)
-            if inserted and msg.sender_type == SenderType.OTHER and msg.message_type == MessageType.TEXT:
+            if (
+                inserted
+                and id(msg) in triggerable_ids
+                and msg.sender_type == SenderType.OTHER
+                and msg.message_type == MessageType.TEXT
+            ):
                 trigger_messages.append(msg)
         return trigger_messages
 
@@ -84,3 +90,19 @@ class MessageIngestionService:
         if callable(getter):
             return getter(identity)
         return self.driver.get_current_conversation()
+
+    def _messages_after_last_self(self, messages: list[Message]) -> list[Message]:
+        """Only messages after the latest visible self message can trigger AI.
+
+        UIA visible items do not expose stable message IDs. After sending a reply,
+        older friend messages may move on screen and receive a new UI fingerprint.
+        Treating the visible self message as a watermark prevents those old
+        messages from opening another AI turn.
+        """
+        last_self_index = -1
+        for index, msg in enumerate(messages):
+            if msg.sender_type == SenderType.SELF:
+                last_self_index = index
+        if last_self_index < 0:
+            return messages
+        return messages[last_self_index + 1 :]

@@ -59,6 +59,7 @@ WECHAT_391256_BUILTIN_LOCATORS: dict[str, Any] = {
         "self_avatar_region": "right",
         "friend_unknown_text_as_other": True,
         "system_text_patterns": [
+            r"^以下[为是]新消息$",
             r"撤回了一条消息",
             r"你已添加了.*现在可以开始聊天了",
             r"对方开启了朋友验证",

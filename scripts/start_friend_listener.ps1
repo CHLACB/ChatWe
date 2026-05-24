@@ -4,7 +4,8 @@ param(
     [string]$AiMode = "openai_compatible",
     [double]$Interval = 1.5,
     [double]$StatusInterval = 10,
-    [switch]$ResumePending
+    [switch]$ResumePending,
+    [switch]$DebugTurns
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,5 +17,8 @@ $env:APP_WECHAT_LOCATORS = ".\config\wechat_locators.local.json"
 $extra = @()
 if ($ResumePending) {
     $extra += "--resume-pending"
+}
+if ($DebugTurns) {
+    $extra += "--debug-turns"
 }
 .\.conda\python.exe scripts\uia_friend_listener_run.py @Target --interval $Interval --status-interval $StatusInterval --ai-mode $AiMode @extra

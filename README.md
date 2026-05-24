@@ -193,9 +193,15 @@ config/prompts/styles/natural_short.md
 
 ```text
 APP_AI_TURN_QUIET_SECONDS=5.0
+APP_AI_DUPLICATE_GUARD_SECONDS=120.0
+APP_DIAGNOSTICS_CONTEXT_CHARS=1200
 ```
 
+`APP_AI_DUPLICATE_GUARD_SECONDS` 用来防止 UIA 控件位置变化后，把同一条旧消息误判成新消息再次触发 AI。系统还会只响应“当前可见快照里最后一条自己消息之后”的对方文本消息。
+
 如果 AI 请求失败或输出异常，本轮会跳过并记录诊断，监听不会因此退出。
+
+调试时可查看 `/system/diagnostics`，其中包含最近监听到的可见消息快照、pending AI 回合、最近一次 AI 输入尾部和模型原始输出。`APP_DIAGNOSTICS_CONTEXT_CHARS` 控制诊断里保留多少字符的上下文尾部。
 
 常驻监听启动时默认会把上次遗留的 `pending/sending` 发送任务标记为失败，避免旧回复在重启后突然补发。确实要恢复旧任务时再加 `--resume-pending`。
 

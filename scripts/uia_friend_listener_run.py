@@ -34,6 +34,7 @@ def main() -> int:
     parser.add_argument("--retry-stopped", action=argparse.BooleanOptionalAction, default=True, help="临时 UIA 切换/标题读取失败时自动重试")
     parser.add_argument("--retry-interval", type=float, default=8.0, help="自动重试 stopped 监听对象的最小间隔秒数")
     parser.add_argument("--resume-pending", action="store_true", help="保留上次遗留的 pending/sending 发送任务；默认启动时标记失败避免旧回复补发")
+    parser.add_argument("--debug-turns", action="store_true", help="状态输出时打印最近监听快照和最近 AI 输入/输出摘要")
     args = parser.parse_args()
 
     settings = load_settings()
@@ -65,6 +66,8 @@ def main() -> int:
         send_queue,
         AiTurnParser(max_messages=settings.ai_max_messages_per_turn, strict_json=settings.ai_strict_turn_json),
         ai_turn_quiet_seconds=settings.ai_turn_quiet_seconds,
+        ai_duplicate_guard_seconds=settings.ai_duplicate_guard_seconds,
+        diagnostics_context_chars=settings.diagnostics_context_chars,
     )
     listener = ListenerManager(
         repo=repo,
@@ -90,6 +93,7 @@ def main() -> int:
         f"model={settings.ai_model} "
         f"api_key_configured={bool(settings.ai_api_key)} "
         f"turn_quiet_seconds={settings.ai_turn_quiet_seconds} "
+        f"duplicate_guard_seconds={settings.ai_duplicate_guard_seconds} "
         f"db={settings.db_path}",
         flush=True,
     )
@@ -107,7 +111,7 @@ def main() -> int:
                 break
             if now - last_status_at >= args.status_interval:
                 last_status_at = now
-                _print_status(repo, driver)
+                _print_status(repo, driver, service, args.debug_turns)
                 targets = repo.list_listen_targets()
                 if targets and all(target.status != ListenStatus.LISTENING for target in targets):
                     if args.retry_stopped and now - last_retry_at >= args.retry_interval:
@@ -128,7 +132,7 @@ def main() -> int:
     return exit_code
 
 
-def _print_status(repo: SqliteRepository, driver: UiaWechatDriver) -> None:
+def _print_status(repo: SqliteRepository, driver: UiaWechatDriver, service: WechatApplicationService | None = None, debug_turns: bool = False) -> None:
     try:
         current = driver.get_current_conversation()
         current_name = current.display_name if current else None
@@ -153,6 +157,38 @@ def _print_status(repo: SqliteRepository, driver: UiaWechatDriver) -> None:
             f"error={target.last_error!r}",
             flush=True,
         )
+    if debug_turns and service is not None:
+        snapshot = service.diagnostics_snapshot()
+        pending = snapshot.get("pending_ai_turns", [])
+        print(f"debug pending_ai_turns={len(pending)}", flush=True)
+        if pending:
+            latest_pending = pending[-1]
+            print(
+                "debug pending "
+                f"target={latest_pending.get('display_name')!r} "
+                f"age={latest_pending.get('age_seconds')} "
+                f"trigger={latest_pending.get('trigger_content')!r}",
+                flush=True,
+            )
+        visible = snapshot.get("last_visible_snapshots", [])
+        if visible:
+            latest_visible = visible[-1]
+            tail = latest_visible.get("messages", [])[-5:]
+            print(f"debug visible_tail={tail!r}", flush=True)
+        turns = snapshot.get("last_ai_turns", [])
+        if turns:
+            latest_turn = turns[-1]
+            raw = str(latest_turn.get("raw_reply", ""))
+            context_tail = str(latest_turn.get("context_tail", ""))
+            print(
+                "debug last_ai_turn "
+                f"target={latest_turn.get('display_name')!r} "
+                f"trigger={latest_turn.get('trigger_content')!r} "
+                f"parsed={latest_turn.get('parsed_messages')!r} "
+                f"raw={raw[:500]!r} "
+                f"context_tail={context_tail[-500:]!r}",
+                flush=True,
+            )
 
 
 def _restart_transient_stopped_targets(repo: SqliteRepository, listener: ListenerManager) -> int:

@@ -34,6 +34,8 @@ class WechatApplicationService:
         send_queue: SendQueue,
         ai_turn_parser: AiTurnParser | None = None,
         ai_turn_quiet_seconds: float = 0.0,
+        ai_duplicate_guard_seconds: float = 120.0,
+        diagnostics_context_chars: int = 1200,
     ):
         self.repo = repo
         self.driver = driver
@@ -43,7 +45,12 @@ class WechatApplicationService:
         self.send_queue = send_queue
         self.ai_turn_parser = ai_turn_parser or AiTurnParser(strict_json=False)
         self.ai_turn_quiet_seconds = max(0.0, ai_turn_quiet_seconds)
+        self.ai_duplicate_guard_seconds = max(0.0, ai_duplicate_guard_seconds)
+        self.diagnostics_context_chars = max(0, diagnostics_context_chars)
         self._pending_ai_turns: dict[str, PendingAiTurn] = {}
+        self._recent_trigger_keys: dict[str, float] = {}
+        self._last_visible_snapshots: list[dict] = []
+        self._last_ai_turns: list[dict] = []
         self._last_ai_errors: list[dict] = []
         self._start_listener: Callable[[str], None] | None = None
         self._stop_listener: Callable[[str, str | None], None] | None = None
@@ -170,6 +177,8 @@ class WechatApplicationService:
                 }
                 for pending in self._pending_ai_turns.values()
             ],
+            "last_visible_snapshots": self._last_visible_snapshots[-10:],
+            "last_ai_turns": self._last_ai_turns[-10:],
             "last_ai_errors": self._last_ai_errors[-10:],
         }
 
@@ -191,7 +200,9 @@ class WechatApplicationService:
     def handle_realtime_messages(self, identity: ConversationIdentity, messages: list[Message]) -> None:
         if self.repo.get_listen_target(identity.conversation_id) is None:
             return
+        self._record_visible_snapshot(identity, messages)
         triggers = self.ingestion.ingest_realtime_messages(identity, messages)
+        triggers = self._filter_recent_duplicate_triggers(identity, triggers)
         if not triggers:
             return
         msg = triggers[-1]
@@ -219,6 +230,7 @@ class WechatApplicationService:
             context = self.context_builder.build_context(pending.identity, pending.trigger_message)
             raw_reply = self.ai.generate_reply(context=context, trigger_message=pending.trigger_message).strip()
             turn = self.ai_turn_parser.parse(raw_reply)
+            self._record_ai_turn(pending, context, raw_reply, turn.messages, turn.done)
             if not turn.done:
                 self._record_ai_error(pending.identity, "AI 未按本轮完成协议输出 done=true，已跳过本轮。")
                 return
@@ -230,6 +242,74 @@ class WechatApplicationService:
                 )
         except Exception as exc:
             self._record_ai_error(pending.identity, str(exc))
+
+    def _filter_recent_duplicate_triggers(self, identity: ConversationIdentity, triggers: list[Message]) -> list[Message]:
+        if not triggers or self.ai_duplicate_guard_seconds <= 0:
+            return triggers
+        now = time.monotonic()
+        cutoff = now - self.ai_duplicate_guard_seconds
+        self._recent_trigger_keys = {
+            key: seen_at for key, seen_at in self._recent_trigger_keys.items() if seen_at >= cutoff
+        }
+
+        fresh: list[Message] = []
+        for msg in triggers:
+            key = self._trigger_key(identity, msg)
+            seen_at = self._recent_trigger_keys.get(key)
+            if seen_at is not None and now - seen_at <= self.ai_duplicate_guard_seconds:
+                continue
+            self._recent_trigger_keys[key] = now
+            fresh.append(msg)
+        return fresh
+
+    def _trigger_key(self, identity: ConversationIdentity, msg: Message) -> str:
+        normalized = " ".join(msg.content.split())
+        sender = msg.sender_name or msg.sender_type.value
+        return f"{identity.conversation_id}|{sender}|{normalized}"
+
+    def _record_visible_snapshot(self, identity: ConversationIdentity, messages: list[Message]) -> None:
+        self._last_visible_snapshots.append(
+            {
+                "conversation_id": identity.conversation_id,
+                "display_name": identity.display_name,
+                "at_monotonic": round(time.monotonic(), 3),
+                "count": len(messages),
+                "messages": [
+                    {
+                        "sender_type": msg.sender_type.value,
+                        "message_type": msg.message_type.value,
+                        "content": msg.content,
+                        "fingerprint": msg.fingerprint,
+                    }
+                    for msg in messages[-20:]
+                ],
+            }
+        )
+        self._last_visible_snapshots = self._last_visible_snapshots[-20:]
+
+    def _record_ai_turn(
+        self,
+        pending: PendingAiTurn,
+        context: str,
+        raw_reply: str,
+        parsed_messages: list[str],
+        done: bool,
+    ) -> None:
+        context_preview = context[-self.diagnostics_context_chars :] if self.diagnostics_context_chars else ""
+        self._last_ai_turns.append(
+            {
+                "conversation_id": pending.identity.conversation_id,
+                "display_name": pending.identity.display_name,
+                "trigger_message_id": pending.trigger_message.message_id,
+                "trigger_content": pending.trigger_message.content,
+                "done": done,
+                "parsed_messages": parsed_messages,
+                "raw_reply": raw_reply,
+                "context_tail": context_preview,
+                "at_monotonic": round(time.monotonic(), 3),
+            }
+        )
+        self._last_ai_turns = self._last_ai_turns[-20:]
 
     def _record_ai_error(self, identity: ConversationIdentity, error: str) -> None:
         self._last_ai_errors.append(

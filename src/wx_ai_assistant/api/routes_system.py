@@ -45,6 +45,8 @@ def diagnostics(request: Request):
         "ai_max_messages_per_turn": settings.ai_max_messages_per_turn,
         "ai_strict_turn_json": settings.ai_strict_turn_json,
         "ai_turn_quiet_seconds": settings.ai_turn_quiet_seconds,
+        "ai_duplicate_guard_seconds": settings.ai_duplicate_guard_seconds,
+        "diagnostics_context_chars": settings.diagnostics_context_chars,
         "db_path": str(settings.db_path),
         "history_db_path": str(settings.history_db_path),
         "wechat_locators": str(settings.wechat_locators),
