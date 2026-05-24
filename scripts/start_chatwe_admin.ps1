@@ -8,9 +8,9 @@ $env:APP_AI_CONFIG = if ($env:APP_AI_CONFIG) { $env:APP_AI_CONFIG } else { ".\co
 $env:APP_WECHAT_LOCATORS = if ($env:APP_WECHAT_LOCATORS) { $env:APP_WECHAT_LOCATORS } else { ".\config\wechat_locators.local.json" }
 
 $url = "http://127.0.0.1:8000/admin"
-Write-Host "ChatWe 本地控制台启动中..."
-Write-Host "地址: $url"
-Write-Host "按 Ctrl+C 停止服务。"
+Write-Host "Starting ChatWe local admin console..."
+Write-Host "URL: $url"
+Write-Host "Press Ctrl+C to stop."
 
 Start-Process $url | Out-Null
 .\.conda\python.exe -m uvicorn wx_ai_assistant.main:app --app-dir src --host 127.0.0.1 --port 8000
