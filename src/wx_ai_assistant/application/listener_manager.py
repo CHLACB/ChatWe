@@ -6,6 +6,7 @@ from typing import Callable
 
 from wx_ai_assistant.domain.enums import ListenStatus
 from wx_ai_assistant.domain.models import ConversationIdentity, Message
+from wx_ai_assistant.infrastructure.observability.console import print_listener_event, print_message_snapshot
 from wx_ai_assistant.ports.repository import Repository
 from wx_ai_assistant.ports.wechat_driver import WechatDriver
 
@@ -22,6 +23,7 @@ class ListenerManager:
         on_baseline_messages: Callable[[ConversationIdentity, list[Message]], None] | None = None,
         on_after_poll: Callable[[], None] | None = None,
         driver_lock: threading.RLock | None = None,
+        debug_logging: bool = False,
     ):
         self.repo = repo
         self.driver = driver
@@ -33,6 +35,7 @@ class ListenerManager:
         self._thread: threading.Thread | None = None
         self._driver_lock = driver_lock or threading.RLock()
         self._baselined_conversation_ids: set[str] = set()
+        self.debug_logging = debug_logging
 
     def start_worker(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -59,12 +62,23 @@ class ListenerManager:
         baseline_targets = [
             target for target in targets if target.conversation.conversation_id not in self._baselined_conversation_ids
         ]
+        if baseline_targets:
+            self._log("baseline_start", details={"count": len(baseline_targets)})
         active_targets = self._find_active_targets([
             target for target in targets if target.conversation.conversation_id in self._baselined_conversation_ids
         ])
+        if active_targets:
+            self._log(
+                "unread_detected",
+                action="switch_and_read",
+                details={"active_targets": len(active_targets)},
+            )
+        elif targets and not baseline_targets:
+            self._log("no_active_targets", details={"listening_targets": len(targets)})
 
         for target in [*baseline_targets, *active_targets]:
             try:
+                self._log("switch_and_read", target=target.conversation.display_name)
                 with self._driver_lock:
                     status = self.driver.switch_conversation(target.conversation)
                     if not status.ok:
@@ -73,16 +87,28 @@ class ListenerManager:
                     if target.conversation.conversation_id not in self._baselined_conversation_ids:
                         self.on_baseline_messages(target.conversation, messages)
                         self._baselined_conversation_ids.add(target.conversation.conversation_id)
+                        self._log(
+                            "baseline_done",
+                            target=target.conversation.display_name,
+                            details={"messages": len(messages)},
+                        )
                     elif messages:
+                        self._message_snapshot(target.conversation.display_name, messages)
                         self.on_messages(target.conversation, messages)
             except Exception as exc:
                 self.stop_target(target.conversation.conversation_id, str(exc))
+                self._log(
+                    "target_error",
+                    target=target.conversation.display_name,
+                    details={"error": str(exc)},
+                )
         if self.on_after_poll:
             self.on_after_poll()
 
     def _find_active_targets(self, targets) -> list:
         if not targets:
             return []
+        self._log("passive_scan", details={"targets": len(targets)})
         active_conversations = self.driver.find_active_listen_targets([target.conversation for target in targets])
         active_ids = {identity.conversation_id for identity in active_conversations}
         return [target for target in targets if target.conversation.conversation_id in active_ids]
@@ -91,3 +117,17 @@ class ListenerManager:
         while not self._stop.is_set():
             self.poll_once()
             time.sleep(self.poll_interval_seconds)
+
+    def _log(
+        self,
+        event: str,
+        target: str | None = None,
+        action: str | None = None,
+        details: dict | None = None,
+    ) -> None:
+        if self.debug_logging:
+            print_listener_event(event, target=target, action=action, details=details)
+
+    def _message_snapshot(self, target: str, messages: list[Message]) -> None:
+        if self.debug_logging:
+            print_message_snapshot(target, messages)

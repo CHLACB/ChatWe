@@ -48,6 +48,7 @@ def diagnostics(request: Request):
         "ai_duplicate_guard_seconds": settings.ai_duplicate_guard_seconds,
         "diagnostics_context_chars": settings.diagnostics_context_chars,
         "contact_policies_path": str(settings.contact_policies_path),
+        "conversation_profiles_path": str(settings.conversation_profiles_path),
         "db_path": str(settings.db_path),
         "history_db_path": str(settings.history_db_path),
         "wechat_locators": str(settings.wechat_locators),

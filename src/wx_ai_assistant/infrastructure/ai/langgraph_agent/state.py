@@ -15,6 +15,7 @@ class WechatReplyState(TypedDict, total=False):
     local_id: str
     _identity: Any
     contact_policy: dict
+    conversation_profile: dict
     proactive_mode: str
     max_messages_per_turn: int
     intent: str

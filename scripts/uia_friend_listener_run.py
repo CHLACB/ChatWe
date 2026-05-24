@@ -20,6 +20,7 @@ from wx_ai_assistant.domain.enums import ConversationType, ListenStatus, SendTas
 from wx_ai_assistant.identity.verifier import ConversationVerifier  # noqa: E402
 from wx_ai_assistant.infrastructure.ai.factory import build_ai_gateway  # noqa: E402
 from wx_ai_assistant.infrastructure.history.normalized_sqlite_history_reader import NormalizedSqliteHistoryReader  # noqa: E402
+from wx_ai_assistant.infrastructure.observability.console import print_ai_decision, print_message_snapshot  # noqa: E402
 from wx_ai_assistant.infrastructure.persistence.sqlite_repository import SqliteRepository  # noqa: E402
 from wx_ai_assistant.infrastructure.wechat.uia_driver import UiaWechatDriver  # noqa: E402
 
@@ -77,6 +78,7 @@ def main() -> int:
         on_baseline_messages=service.handle_baseline_messages,
         on_after_poll=service.flush_ready_ai_turns,
         driver_lock=driver_lock,
+        debug_logging=args.debug_turns,
     )
     service.bind_listener_controls(listener.start_target, listener.stop_target, listener.poll_once)
     send_queue.on_failed = lambda conversation_id, error: listener.stop_target(conversation_id, error)
@@ -174,28 +176,15 @@ def _print_status(repo: SqliteRepository, driver: UiaWechatDriver, service: Wech
         if visible:
             latest_visible = visible[-1]
             tail = latest_visible.get("messages", [])[-5:]
-            print(f"debug visible_tail={tail!r}", flush=True)
+            print_message_snapshot(str(latest_visible.get("display_name") or "-"), tail, title="VISIBLE TAIL")
         turns = snapshot.get("last_ai_turns", [])
         if turns:
             latest_turn = turns[-1]
-            raw = str(latest_turn.get("raw_reply", ""))
-            context_tail = str(latest_turn.get("context_tail", ""))
-            print(
-                "debug last_ai_turn "
-                f"run_id={latest_turn.get('run_id')!r} "
-                f"target={latest_turn.get('display_name')!r} "
-                f"trigger={latest_turn.get('trigger_content')!r} "
-                f"intent={latest_turn.get('intent')!r} "
-                f"emotion={latest_turn.get('emotion')!r} "
-                f"should_reply={latest_turn.get('should_reply')!r} "
-                f"strategy={latest_turn.get('reply_strategy')!r} "
-                f"draft={latest_turn.get('draft_messages')!r} "
-                f"safety={latest_turn.get('safety_action')!r}:{latest_turn.get('safety_reasons')!r} "
-                f"final={latest_turn.get('final_messages')!r} "
-                f"parsed={latest_turn.get('parsed_messages')!r} "
-                f"raw={raw[:500]!r} "
-                f"context_tail={context_tail[-500:]!r}",
-                flush=True,
+            print_ai_decision(
+                str(latest_turn.get("run_id") or ""),
+                str(latest_turn.get("display_name") or ""),
+                str(latest_turn.get("trigger_content") or ""),
+                latest_turn,
             )
 
 

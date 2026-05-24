@@ -29,6 +29,7 @@ class Settings:
     diagnostics_context_chars: int
     ai_extra_body: str
     contact_policies_path: Path
+    conversation_profiles_path: Path
     history_mode: str
     history_db_path: Path
     wechat_locators: Path
@@ -66,6 +67,9 @@ def load_settings() -> Settings:
         diagnostics_context_chars=int(os.getenv("APP_DIAGNOSTICS_CONTEXT_CHARS", "1200")),
         ai_extra_body=os.getenv("APP_AI_EXTRA_BODY", "").strip(),
         contact_policies_path=Path(os.getenv("APP_CONTACT_POLICIES_PATH", "./config/contact_policies.local.json")),
+        conversation_profiles_path=Path(
+            os.getenv("APP_CONVERSATION_PROFILES_PATH", "./config/conversation_profiles.local.json")
+        ),
         history_mode=os.getenv("APP_HISTORY_MODE", "normalized_sqlite").strip().lower(),
         history_db_path=Path(os.getenv("APP_HISTORY_DB_PATH", "./data/history_normalized.sqlite3")),
         wechat_locators=Path(os.getenv("APP_WECHAT_LOCATORS", "./config/wechat_locators.local.json")),

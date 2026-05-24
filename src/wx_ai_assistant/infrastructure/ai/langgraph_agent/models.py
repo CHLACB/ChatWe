@@ -24,6 +24,7 @@ class LangGraphAiConfig:
     proactive_mode: str = "off"
     max_messages_per_turn: int = 2
     contact_policies_path: str = "./config/contact_policies.local.json"
+    conversation_profiles_path: str = "./config/conversation_profiles.local.json"
 
 
 class ContactPolicy(BaseModel):
@@ -33,6 +34,26 @@ class ContactPolicy(BaseModel):
     tone: str = "natural_short"
     allow_questions: bool = True
     notes: str = ""
+
+
+class ConversationProfile(BaseModel):
+    relationship: str = "普通微信联系人"
+    communication_style: str = "自然、简短、不过度热情"
+    initiative_level: str = "low"
+    max_messages: int = 1
+    max_chars_per_message: int = 60
+    allow_follow_up_question: bool = True
+    allow_emotional_support: bool = True
+    avoid_topics: list[str] = Field(default_factory=list)
+    hard_rules: list[str] = Field(
+        default_factory=lambda: [
+            "不要暴露自己是 AI",
+            "不要自称机器人",
+            "不要主动承诺现实中无法完成的事情",
+            "不要连续追问",
+            "不确定时回复简短确认或请求对方补充",
+        ]
+    )
 
 
 class IntentAnalysisOutput(BaseModel):

@@ -89,6 +89,7 @@ class SqliteRepository:
                 trigger_message TEXT NOT NULL,
                 display_name TEXT NOT NULL,
                 contact_policy TEXT NOT NULL,
+                conversation_profile TEXT NOT NULL DEFAULT '{}',
                 intent TEXT,
                 emotion TEXT,
                 user_need TEXT,
@@ -103,9 +104,11 @@ class SqliteRepository:
                 done INTEGER NOT NULL,
                 node_errors TEXT NOT NULL,
                 raw_state TEXT NOT NULL,
+                raw_state_json TEXT NOT NULL DEFAULT '{}',
                 created_at TEXT NOT NULL
             );
             """)
+            self._ensure_ai_decision_log_columns()
 
     def upsert_conversation(self, identity: ConversationIdentity) -> None:
         with self._lock, self._conn:
@@ -320,12 +323,12 @@ class SqliteRepository:
                 """
                 INSERT OR REPLACE INTO ai_decision_logs(
                     run_id, conversation_id, trigger_message_id, trigger_message, display_name,
-                    contact_policy, intent, emotion, user_need, relationship_signal,
+                    contact_policy, conversation_profile, intent, emotion, user_need, relationship_signal,
                     should_reply, no_reply_reason, reply_strategy, draft_messages,
                     safety_action, safety_reasons, final_messages, done, node_errors,
-                    raw_state, created_at
+                    raw_state, raw_state_json, created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     log.run_id,
@@ -334,6 +337,7 @@ class SqliteRepository:
                     log.trigger_message,
                     log.display_name,
                     json.dumps(log.contact_policy, ensure_ascii=False),
+                    json.dumps(log.conversation_profile, ensure_ascii=False),
                     log.intent,
                     log.emotion,
                     log.user_need,
@@ -348,9 +352,18 @@ class SqliteRepository:
                     1 if log.done else 0,
                     json.dumps(log.node_errors, ensure_ascii=False),
                     json.dumps(log.raw_state, ensure_ascii=False),
+                    json.dumps(log.raw_state_json or log.raw_state, ensure_ascii=False),
                     _dt_to_str(log.created_at),
                 ),
             )
+
+    def _ensure_ai_decision_log_columns(self) -> None:
+        rows = self._conn.execute("PRAGMA table_info(ai_decision_logs)").fetchall()
+        columns = {row["name"] for row in rows}
+        if "conversation_profile" not in columns:
+            self._conn.execute("ALTER TABLE ai_decision_logs ADD COLUMN conversation_profile TEXT NOT NULL DEFAULT '{}'")
+        if "raw_state_json" not in columns:
+            self._conn.execute("ALTER TABLE ai_decision_logs ADD COLUMN raw_state_json TEXT NOT NULL DEFAULT '{}'")
 
     def _row_to_conversation(self, row: sqlite3.Row) -> ConversationIdentity:
         return ConversationIdentity(

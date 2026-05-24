@@ -84,6 +84,7 @@ class AiDecisionLog:
     trigger_message: str
     display_name: str
     contact_policy: dict[str, Any]
+    conversation_profile: dict[str, Any] = field(default_factory=dict)
     intent: str = ""
     emotion: str = ""
     user_need: str = ""
@@ -98,4 +99,5 @@ class AiDecisionLog:
     done: bool = True
     node_errors: list[str] = field(default_factory=list)
     raw_state: dict[str, Any] = field(default_factory=dict)
+    raw_state_json: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=utc_now)

@@ -7,6 +7,7 @@ from typing import Callable, Optional
 from wx_ai_assistant.domain.enums import SendTaskStatus
 from wx_ai_assistant.domain.models import ConversationIdentity, SendTask
 from wx_ai_assistant.identity.verifier import ConversationVerifier
+from wx_ai_assistant.infrastructure.observability.console import print_send_event
 from wx_ai_assistant.ports.repository import Repository
 from wx_ai_assistant.ports.wechat_driver import WechatDriver
 
@@ -66,6 +67,7 @@ class SendQueue:
         identity = self.repo.get_conversation(task.conversation_id)
         if identity is None:
             self.repo.update_send_task(task.send_task_id, SendTaskStatus.FAILED, "会话不存在")
+            print_send_event(task.conversation_id, "failed", [task.content], "会话不存在")
             return
 
         self.repo.update_send_task(task.send_task_id, SendTaskStatus.SENDING)
@@ -79,8 +81,10 @@ class SendQueue:
                 if self.on_sent:
                     self.on_sent(identity, task.content)
             self.repo.update_send_task(task.send_task_id, SendTaskStatus.SUCCESS)
+            print_send_event(identity.display_name, "success", [task.content])
         except Exception as exc:
             error = str(exc)
             self.repo.update_send_task(task.send_task_id, SendTaskStatus.FAILED, error)
+            print_send_event(identity.display_name, "failed", [task.content], error)
             if self.on_failed:
                 self.on_failed(task.conversation_id, error)

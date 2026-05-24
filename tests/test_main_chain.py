@@ -497,5 +497,5 @@ def test_debug_turns_output_contains_run_id_and_intent(tmp_path, capsys):
     _print_status(repo, driver, service, debug_turns=True)
 
     output = capsys.readouterr().out
-    assert "run_id='lg_test'" in output
-    assert "intent='问是否有空'" in output
+    assert "[AI DECISION] run_id=lg_test" in output
+    assert "问是否有空" in output

@@ -14,6 +14,7 @@ from wx_ai_assistant.domain.models import ConversationIdentity, ListenTarget, Me
 from wx_ai_assistant.ports.ai_gateway import AiGateway
 from wx_ai_assistant.ports.repository import Repository
 from wx_ai_assistant.ports.wechat_driver import WechatDriver
+from wx_ai_assistant.infrastructure.observability.console import print_error_block
 
 
 @dataclass
@@ -332,7 +333,7 @@ class WechatApplicationService:
             }
         )
         self._last_ai_errors = self._last_ai_errors[-20:]
-        print(f"ai_error target={identity.display_name!r} error={error}", flush=True)
+        print_error_block("AI ERROR", error, {"target": identity.display_name})
 
     def handle_baseline_messages(self, identity: ConversationIdentity, messages: list[Message]) -> None:
         if self.repo.get_listen_target(identity.conversation_id) is None:

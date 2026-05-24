@@ -26,6 +26,7 @@ def build_ai_gateway(settings: Settings, force_mode: str | None = None, reposito
                 proactive_mode=settings.ai_proactive_mode,
                 max_messages_per_turn=settings.ai_max_messages_per_turn,
                 contact_policies_path=str(settings.contact_policies_path),
+                conversation_profiles_path=str(settings.conversation_profiles_path),
             ),
             repository=repository,
         )

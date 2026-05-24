@@ -7,6 +7,7 @@ from wx_ai_assistant.domain.enums import MessageType, SenderType
 from wx_ai_assistant.domain.models import Message
 from wx_ai_assistant.infrastructure.ai.factory import build_ai_gateway
 from wx_ai_assistant.infrastructure.ai.langgraph_agent.contact_policy import ContactPolicyLoader
+from wx_ai_assistant.infrastructure.ai.langgraph_agent.conversation_profile import ConversationProfileLoader
 from wx_ai_assistant.infrastructure.ai.langgraph_agent.gateway import LangGraphAiConfig, LangGraphAiGateway
 from wx_ai_assistant.infrastructure.ai.langgraph_agent.graph import build_wechat_reply_graph
 from wx_ai_assistant.infrastructure.ai.langgraph_agent.models import JsonChatClient
@@ -110,6 +111,7 @@ def test_factory_builds_langgraph_gateway(monkeypatch, tmp_path):
         diagnostics_context_chars=1200,
         ai_extra_body="",
         contact_policies_path=tmp_path / "contact_policies.json",
+        conversation_profiles_path=tmp_path / "conversation_profiles.json",
         history_mode="normalized_sqlite",
         history_db_path=tmp_path / "history.sqlite3",
         wechat_locators=tmp_path / "locators.json",
@@ -154,6 +156,41 @@ def test_contact_policy_matches_custom_display_name(tmp_path):
     assert policy.max_messages_per_turn == 2
 
 
+def test_conversation_profile_missing_file_uses_default(tmp_path):
+    loader = ConversationProfileLoader(tmp_path / "missing.json")
+
+    profile = loader.load_for_identity(None, "AAxc")
+
+    assert profile.relationship == "普通微信联系人"
+    assert profile.max_messages == 1
+
+
+def test_conversation_profile_matches_custom_display_name(tmp_path):
+    path = tmp_path / "profiles.json"
+    path.write_text(
+        json.dumps(
+            {
+                "default": {"max_messages": 1},
+                "AAxc": {
+                    "relationship": "熟人",
+                    "communication_style": "口语短句",
+                    "initiative_level": "medium",
+                    "max_messages": 2,
+                    "max_chars_per_message": 30,
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    loader = ConversationProfileLoader(path)
+
+    profile = loader.load_for_identity(None, "AAxc")
+
+    assert profile.relationship == "熟人"
+    assert profile.max_messages == 2
+
+
 def test_langgraph_safety_skip_returns_empty_final_messages():
     client = ScriptedJsonClient(
         [
@@ -171,6 +208,90 @@ def test_langgraph_safety_skip_returns_empty_final_messages():
     raw = gateway.generate_reply("recent context", msg)
 
     assert json.loads(raw) == {"messages": [], "done": True}
+
+
+def test_load_conversation_profile_node_writes_state(tmp_path):
+    path = tmp_path / "profiles.json"
+    path.write_text(json.dumps({"AAxc": {"relationship": "熟人"}}, ensure_ascii=False), encoding="utf-8")
+    client = ScriptedJsonClient(
+        [
+            {"intent": "问候", "emotion": "中性", "user_need": "回应", "relationship_signal": "熟人"},
+            {"should_reply": False, "no_reply_reason": "不需要"},
+        ]
+    )
+    loader = ConversationProfileLoader(path)
+    graph = build_wechat_reply_graph(client, profile_loader=loader)
+    gateway = LangGraphAiGateway(_config(), client=client, graph=graph)
+    msg = Message("conv", SenderType.OTHER, MessageType.TEXT, "hi", sender_name="AAxc")
+
+    gateway.generate_reply("ctx", msg)
+
+    assert gateway.last_decision_snapshot["conversation_profile"]["relationship"] == "熟人"
+
+
+def test_safety_check_limits_max_messages_by_profile(tmp_path):
+    path = tmp_path / "profiles.json"
+    path.write_text(json.dumps({"default": {"max_messages": 1}}, ensure_ascii=False), encoding="utf-8")
+    client = ScriptedJsonClient(
+        [
+            {"intent": "问候", "emotion": "中性", "user_need": "回应", "relationship_signal": "普通"},
+            {"should_reply": True, "no_reply_reason": ""},
+            {"reply_strategy": "短句"},
+            {"draft_messages": ["第一句", "第二句"]},
+            {"safety_action": "allow", "safety_reasons": [], "rewritten_messages": []},
+        ]
+    )
+    loader = ConversationProfileLoader(path)
+    graph = build_wechat_reply_graph(client, profile_loader=loader)
+    gateway = LangGraphAiGateway(_config(), client=client, graph=graph)
+    msg = Message("conv", SenderType.OTHER, MessageType.TEXT, "hi", sender_name="AAxc")
+
+    raw = gateway.generate_reply("ctx", msg)
+
+    assert json.loads(raw)["messages"] == ["第一句"]
+
+
+def test_safety_check_shortens_by_profile_chars(tmp_path):
+    path = tmp_path / "profiles.json"
+    path.write_text(json.dumps({"default": {"max_chars_per_message": 5}}, ensure_ascii=False), encoding="utf-8")
+    client = ScriptedJsonClient(
+        [
+            {"intent": "问候", "emotion": "中性", "user_need": "回应", "relationship_signal": "普通"},
+            {"should_reply": True, "no_reply_reason": ""},
+            {"reply_strategy": "短句"},
+            {"draft_messages": ["这是一段很长的话"]},
+            {"safety_action": "allow", "safety_reasons": [], "rewritten_messages": []},
+        ]
+    )
+    loader = ConversationProfileLoader(path)
+    graph = build_wechat_reply_graph(client, profile_loader=loader)
+    gateway = LangGraphAiGateway(_config(), client=client, graph=graph)
+    msg = Message("conv", SenderType.OTHER, MessageType.TEXT, "hi", sender_name="AAxc")
+
+    raw = gateway.generate_reply("ctx", msg)
+
+    assert json.loads(raw)["messages"] == ["这是一段很"]
+
+
+def test_safety_check_skips_avoid_topics(tmp_path):
+    path = tmp_path / "profiles.json"
+    path.write_text(json.dumps({"default": {"avoid_topics": ["转账"]}}, ensure_ascii=False), encoding="utf-8")
+    client = ScriptedJsonClient(
+        [
+            {"intent": "钱款", "emotion": "中性", "user_need": "转账", "relationship_signal": "普通"},
+            {"should_reply": True, "no_reply_reason": ""},
+            {"reply_strategy": "跳过"},
+            {"draft_messages": ["我给你转账"]},
+        ]
+    )
+    loader = ConversationProfileLoader(path)
+    graph = build_wechat_reply_graph(client, profile_loader=loader)
+    gateway = LangGraphAiGateway(_config(), client=client, graph=graph)
+    msg = Message("conv", SenderType.OTHER, MessageType.TEXT, "转账", sender_name="AAxc")
+
+    raw = gateway.generate_reply("ctx", msg)
+
+    assert json.loads(raw)["messages"] == []
 
 
 class CapturingRepository:
@@ -202,6 +323,7 @@ def test_langgraph_gateway_saves_ai_decision_log():
     assert len(repo.logs) == 1
     assert repo.logs[0].run_id.startswith("lg_")
     assert repo.logs[0].intent == "问是否有空"
+    assert isinstance(repo.logs[0].conversation_profile, dict)
 
 
 class FailingRepository:

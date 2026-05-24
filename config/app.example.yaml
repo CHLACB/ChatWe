@@ -14,6 +14,7 @@ app:
   diagnostics_context_chars: 1200
   ai_core_prompt_path: ./config/prompts/system.core.md
   contact_policies_path: ./config/contact_policies.local.json
+  conversation_profiles_path: ./config/conversation_profiles.local.json
   history_mode: normalized_sqlite
   history_db_path: ./data/history_normalized.sqlite3
   wechat_locators: ./config/wechat_locators.local.json
