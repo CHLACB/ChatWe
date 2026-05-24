@@ -135,6 +135,12 @@ config/prompts/system.wechat_turn.md
 config/prompts/styles/natural_short.md
 ```
 
+最高优先级系统提示词：
+
+```text
+config/prompts/system.core.md
+```
+
 关键配置：
 
 ```text
@@ -143,6 +149,7 @@ APP_AI_STYLE_PATH=./config/prompts/styles/natural_short.md
 APP_AI_PROACTIVE_MODE=off
 APP_AI_MAX_MESSAGES_PER_TURN=3
 APP_AI_STRICT_TURN_JSON=true
+APP_AI_CORE_PROMPT_PATH=./config/prompts/system.core.md
 ```
 
 默认 `APP_AI_PROACTIVE_MODE=off` 是被动模式：只回应对方刚发来的内容，本轮回复完就停。改成 `on` 后允许适度主动追问，但仍然只输出一次 `messages` 数组，不会一直自我续写。
@@ -270,6 +277,14 @@ python scripts/uia_listener_poll_once_test.py AAxc 2
 ```powershell
 .\.conda\python.exe scripts\uia_friend_listener_run.py "AAxc" --ai-mode openai_compatible --interval 1.5
 ```
+
+启动时默认会清理上次残留的 `pending/sending` 发送任务，避免旧回复补发。需要恢复旧任务时显式加：
+
+```powershell
+.\.conda\python.exe scripts\uia_friend_listener_run.py "AAxc" --resume-pending
+```
+
+如果临时 UIA 切换失败或标题读取失败，常驻脚本默认会安全重试；重试期间不会读消息或发送消息。
 
 调试短跑可以加：
 

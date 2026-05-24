@@ -21,6 +21,7 @@ def build_ai_gateway(settings: Settings, force_mode: str | None = None) -> AiGat
                 max_tokens=settings.ai_max_tokens,
                 timeout_seconds=settings.ai_timeout_seconds,
                 system_prompt=compose_system_prompt(
+                    settings.ai_core_prompt_path,
                     settings.ai_prompt_path,
                     settings.ai_style_path,
                     settings.ai_system_prompt,

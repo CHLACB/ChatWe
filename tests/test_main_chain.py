@@ -219,6 +219,19 @@ def test_send_task_query_returns_tasks_by_status(tmp_path):
     assert repo.get_send_task("missing") is None
 
 
+def test_startup_can_mark_unfinished_send_tasks_failed(tmp_path):
+    service, repo, _, _, identity = build_service(tmp_path, StaticAi(""))
+    first = service.send_text_manually(identity.conversation_id, "old pending")
+    second = service.send_text_manually(identity.conversation_id, "old sending")
+    repo.update_send_task(second.send_task_id, SendTaskStatus.SENDING)
+
+    count = repo.fail_unfinished_send_tasks("startup cleanup")
+
+    assert count == 2
+    assert repo.get_send_task(first.send_task_id).status == SendTaskStatus.FAILED
+    assert repo.get_send_task(second.send_task_id).status == SendTaskStatus.FAILED
+
+
 def test_send_queue_marks_failed_when_after_send_verification_fails(tmp_path):
     service, repo, _, queue, identity = build_service(tmp_path, StaticAi(""))
     task = service.send_text_manually(identity.conversation_id, "reply")

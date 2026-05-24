@@ -38,6 +38,7 @@ def diagnostics(request: Request):
         "ai_model": settings.ai_model,
         "ai_base_url": settings.ai_base_url,
         "ai_api_key_configured": bool(settings.ai_api_key),
+        "ai_core_prompt_path": str(settings.ai_core_prompt_path),
         "ai_prompt_path": str(settings.ai_prompt_path),
         "ai_style_path": str(settings.ai_style_path),
         "ai_proactive_mode": settings.ai_proactive_mode,

@@ -231,6 +231,23 @@ class SqliteRepository:
                 (status.value, sent_at, error_message, task_id),
             )
 
+    def fail_unfinished_send_tasks(self, error_message: str) -> int:
+        with self._lock, self._conn:
+            cursor = self._conn.execute(
+                """
+                UPDATE send_tasks
+                SET status=?, error_message=?
+                WHERE status IN (?, ?)
+                """,
+                (
+                    SendTaskStatus.FAILED.value,
+                    error_message,
+                    SendTaskStatus.PENDING.value,
+                    SendTaskStatus.SENDING.value,
+                ),
+            )
+            return int(cursor.rowcount or 0)
+
     def list_pending_send_tasks(self, limit: int = 20) -> list[SendTask]:
         with self._lock:
             rows = self._conn.execute(

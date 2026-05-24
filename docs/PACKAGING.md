@@ -53,6 +53,12 @@ notepad config\prompts\system.wechat_turn.md
 notepad config\prompts\styles\natural_short.md
 ```
 
+最高优先级提示词在：
+
+```bat
+notepad config\prompts\system.core.md
+```
+
 默认要求 AI 输出 `{"messages":[...],"done":true}`，由 AI 自己决定每条微信消息的边界，程序不会硬拆句。
 
 自检会验证：

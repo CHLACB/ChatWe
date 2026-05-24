@@ -9,10 +9,19 @@ def load_prompt_text(path: Path) -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
-def compose_system_prompt(base_prompt_path: Path, style_path: Path, fallback_prompt: str, proactive_mode: str) -> str:
+def compose_system_prompt(
+    core_prompt_path: Path,
+    base_prompt_path: Path,
+    style_path: Path,
+    fallback_prompt: str,
+    proactive_mode: str,
+) -> str:
     parts: list[str] = []
+    core = load_prompt_text(core_prompt_path)
     base = load_prompt_text(base_prompt_path)
     style = load_prompt_text(style_path)
+    if core:
+        parts.append("[最高优先级系统提示词]\n" + core)
     parts.append(base or fallback_prompt)
     if style:
         parts.append("\n[风格库]\n" + style)

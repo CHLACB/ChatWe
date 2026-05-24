@@ -3,7 +3,8 @@ param(
     [string[]]$Target,
     [string]$AiMode = "openai_compatible",
     [double]$Interval = 1.5,
-    [double]$StatusInterval = 10
+    [double]$StatusInterval = 10,
+    [switch]$ResumePending
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,4 +13,8 @@ $env:APP_DRIVER_MODE = "uia"
 $env:APP_AI_MODE = $AiMode
 $env:APP_AI_CONFIG = ".\config\ai.local.env"
 $env:APP_WECHAT_LOCATORS = ".\config\wechat_locators.local.json"
-.\.conda\python.exe scripts\uia_friend_listener_run.py @Target --interval $Interval --status-interval $StatusInterval --ai-mode $AiMode
+$extra = @()
+if ($ResumePending) {
+    $extra += "--resume-pending"
+}
+.\.conda\python.exe scripts\uia_friend_listener_run.py @Target --interval $Interval --status-interval $StatusInterval --ai-mode $AiMode @extra

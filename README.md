@@ -174,9 +174,12 @@ APP_AI_MODEL=deepseek-v4-flash
 AI 对话提示词独立放在：
 
 ```text
+config/prompts/system.core.md
 config/prompts/system.wechat_turn.md
 config/prompts/styles/natural_short.md
 ```
+
+`system.core.md` 是最高优先级系统提示词；`system.wechat_turn.md` 是微信回合协议；`styles/natural_short.md` 是说话风格。
 
 默认是被动回合制：对方发来新消息后，AI 只输出本轮回复，输出 `done=true` 后停止，等待对方下一条消息。AI 必须自己用 JSON 决定要发几条微信消息：
 
@@ -185,6 +188,8 @@ config/prompts/styles/natural_short.md
 ```
 
 程序不会按标点硬拆大段话，只会原样发送 AI 在 `messages` 数组里给出的边界。需要允许适度主动追问时，把 `config\ai.local.env` 里的 `APP_AI_PROACTIVE_MODE=off` 改成 `on`，但一轮仍然只调用一次 AI，发完就停。
+
+常驻监听启动时默认会把上次遗留的 `pending/sending` 发送任务标记为失败，避免旧回复在重启后突然补发。确实要恢复旧任务时再加 `--resume-pending`。
 
 ## 真实好友自动回复回归
 

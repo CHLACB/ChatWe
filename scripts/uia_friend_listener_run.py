@@ -31,6 +31,9 @@ def main() -> int:
     parser.add_argument("--status-interval", type=float, default=10.0, help="状态输出间隔秒数")
     parser.add_argument("--ai-mode", default=None, help="覆盖 APP_AI_MODE，例如 echo/openai_compatible")
     parser.add_argument("--max-seconds", type=float, default=0.0, help="调试用最大运行秒数；默认 0 表示一直运行")
+    parser.add_argument("--retry-stopped", action=argparse.BooleanOptionalAction, default=True, help="临时 UIA 切换/标题读取失败时自动重试")
+    parser.add_argument("--retry-interval", type=float, default=8.0, help="自动重试 stopped 监听对象的最小间隔秒数")
+    parser.add_argument("--resume-pending", action="store_true", help="保留上次遗留的 pending/sending 发送任务；默认启动时标记失败避免旧回复补发")
     args = parser.parse_args()
 
     settings = load_settings()
@@ -38,6 +41,10 @@ def main() -> int:
 
     repo = SqliteRepository(settings.db_path)
     repo.initialize_schema()
+    if not args.resume_pending:
+        cleared = repo.fail_unfinished_send_tasks("启动常驻监听时清理未完成旧任务；如需恢复旧任务请使用 --resume-pending")
+        if cleared:
+            print(f"startup_cleared_unfinished_send_tasks={cleared}", flush=True)
     driver = UiaWechatDriver(settings.wechat_locators)
     status = driver.initialize()
     print(status, flush=True)
@@ -87,6 +94,7 @@ def main() -> int:
 
     exit_code = 0
     last_status_at = 0.0
+    last_retry_at = 0.0
     deadline = time.time() + args.max_seconds if args.max_seconds > 0 else None
     try:
         while True:
@@ -99,6 +107,12 @@ def main() -> int:
                 _print_status(repo, driver)
                 targets = repo.list_listen_targets()
                 if targets and all(target.status != ListenStatus.LISTENING for target in targets):
+                    if args.retry_stopped and now - last_retry_at >= args.retry_interval:
+                        restarted = _restart_transient_stopped_targets(repo, listener)
+                        last_retry_at = now
+                        if restarted:
+                            print(f"retry_restarted_targets={restarted}", flush=True)
+                            continue
                     print("all_targets_stopped=true", flush=True)
                     exit_code = 3
                     break
@@ -136,6 +150,32 @@ def _print_status(repo: SqliteRepository, driver: UiaWechatDriver) -> None:
             f"error={target.last_error!r}",
             flush=True,
         )
+
+
+def _restart_transient_stopped_targets(repo: SqliteRepository, listener: ListenerManager) -> int:
+    restarted = 0
+    for target in repo.list_listen_targets():
+        if target.status == ListenStatus.LISTENING:
+            continue
+        if not _is_transient_listener_error(target.last_error):
+            continue
+        listener.start_target(target.conversation.conversation_id)
+        restarted += 1
+    return restarted
+
+
+def _is_transient_listener_error(error: str | None) -> bool:
+    if not error:
+        return False
+    transient_markers = [
+        "切换会话后无法读取当前聊天标题",
+        "无法读取当前会话身份",
+        "Ctrl+F",
+        "焦点未落到左侧搜索框",
+        "未找到 chat_title 控件",
+        "未找到 message_list 控件",
+    ]
+    return any(marker in error for marker in transient_markers)
 
 
 if __name__ == "__main__":
