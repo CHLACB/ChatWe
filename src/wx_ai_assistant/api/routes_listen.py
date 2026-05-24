@@ -43,6 +43,15 @@ def stop_target(conversation_id: str, request: Request):
     return ok({"conversation_id": conversation_id}, "已停止监听")
 
 
+@router.delete("/targets/{conversation_id}")
+def delete_target(conversation_id: str, request: Request):
+    app_service = request.app.state.app_service
+    deleted = app_service.delete_listen_target(conversation_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"监听对象不存在: {conversation_id}")
+    return ok({"conversation_id": conversation_id}, "已删除监听对象")
+
+
 @router.post("/poll-once")
 def poll_once(request: Request):
     app_service = request.app.state.app_service

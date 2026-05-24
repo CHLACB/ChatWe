@@ -229,6 +229,23 @@ APP_DIAGNOSTICS_CONTEXT_CHARS=1200
 
 它会持续运行，AI 回复和自己消息入库后继续等待对方下一条消息。
 
+多监听对象时，启动基线完成后系统会先被动扫描左侧会话列表；只有检测到未读/新消息信号的目标才会切换会话。无新消息时不会反复抢前台、不会发送 Ctrl+F。
+
+调试左侧会话列表未读信号：
+
+```powershell
+.\.conda\python.exe scripts\dump_conversation_list_items.py --out docs\conversation_list_items.current.json
+```
+
+轻量管理监听对象：
+
+```powershell
+.\.conda\python.exe scripts\manage_listen_targets.py list
+.\.conda\python.exe scripts\manage_listen_targets.py add "AAxc" --local-id "AAxc" --start
+.\.conda\python.exe scripts\manage_listen_targets.py stop conv_xxx
+.\.conda\python.exe scripts\manage_listen_targets.py delete conv_xxx
+```
+
 长时间监听稳定性检查不会发送回复：
 
 ```powershell

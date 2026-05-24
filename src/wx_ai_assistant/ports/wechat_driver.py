@@ -56,6 +56,16 @@ class WechatDriver(Protocol):
     def switch_conversation(self, identity: ConversationIdentity) -> DriverStatus:
         ...
 
+    def find_active_listen_targets(self, targets: list[ConversationIdentity]) -> list[ConversationIdentity]:
+        """Passively detect listen targets that have unread/new-message signals.
+
+        Implementations must not switch chats, activate the window, send hotkeys,
+        or mutate WeChat UI state here. If unread state cannot be determined
+        reliably, return an empty list and expose diagnostics through helper
+        scripts rather than guessing.
+        """
+        ...
+
     def get_current_conversation(self) -> Optional[ConversationIdentity]:
         ...
 

@@ -170,6 +170,11 @@ class SqliteRepository:
             ).fetchone()
         return self._row_to_listen_target(row) if row else None
 
+    def delete_listen_target(self, conversation_id: str) -> bool:
+        with self._lock, self._conn:
+            cursor = self._conn.execute("DELETE FROM listen_targets WHERE conversation_id=?", (conversation_id,))
+            return cursor.rowcount > 0
+
     def insert_message_if_new(self, message: Message) -> bool:
         with self._lock, self._conn:
             try:

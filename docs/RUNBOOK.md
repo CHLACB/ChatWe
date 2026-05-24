@@ -338,16 +338,33 @@ scripts\start_friend_listener.cmd AAxc
 2. 启动发送队列后台 worker。
 3. 启动监听 worker。
 4. 第一轮只建立可见消息基线，不回复旧消息。
-5. 对方每发来一条新文本，都执行 `入库 -> AI -> 发送队列 -> 发送后验证 -> 自己消息入库`。
-6. 同一轮轮询中如果读到多条新对方消息，只调用一次 AI，以最后一条作为触发点，上下文里保留前面的消息。
-7. AI 通过 `messages + done=true` 明确本轮完成；发送完这些消息后系统等待对方下一条消息。
-8. 自己发送的消息会入库，但不会触发 AI。
-9. 程序不会在一次回复后退出，按 `Ctrl+C` 才停止。
+5. 后续轮询先被动扫描左侧会话列表。
+6. 无未读/新消息信号时不切换聊天、不激活窗口、不发送 Ctrl+F。
+7. 只有有未读/新消息信号的目标才执行 `切换会话 -> 读消息 -> 入库 -> AI -> 发送队列 -> 发送后验证 -> 自己消息入库`。
+8. 同一轮轮询中如果读到多条新对方消息，只调用一次 AI，以最后一条作为触发点，上下文里保留前面的消息。
+9. AI 通过 `messages + done=true` 明确本轮完成；发送完这些消息后系统等待对方下一条消息。
+10. 自己发送的消息会入库，但不会触发 AI。
+11. 程序不会在一次回复后退出，按 `Ctrl+C` 才停止。
 
 可以同时监听多个好友私聊：
 
 ```powershell
 .\.conda\python.exe scripts\uia_friend_listener_run.py "AAxc" "文件传输助手" --ai-mode langgraph
+```
+
+如果多监听对象没有新消息但仍出现抢前台，先 dump 左侧会话列表确认未读红点/数字在当前微信版本的 UIA 表现：
+
+```powershell
+.\.conda\python.exe scripts\dump_conversation_list_items.py --out docs\conversation_list_items.current.json
+```
+
+轻量管理监听对象可用：
+
+```powershell
+.\.conda\python.exe scripts\manage_listen_targets.py list
+.\.conda\python.exe scripts\manage_listen_targets.py add "AAxc" --local-id "AAxc" --start
+.\.conda\python.exe scripts\manage_listen_targets.py stop conv_xxx
+.\.conda\python.exe scripts\manage_listen_targets.py delete conv_xxx
 ```
 
 ## 13. 长时间稳定性检查

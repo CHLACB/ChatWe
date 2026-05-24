@@ -409,6 +409,56 @@ def test_listener_first_successful_poll_baselines_visible_messages_without_ai(tm
     assert tasks[0].content == "reply"
 
 
+def test_listener_with_two_baselined_targets_no_unread_does_not_switch(tmp_path):
+    service, repo, driver, _, first = build_service(tmp_path, StaticAi(""))
+    second = service.add_listen_target("同事", ConversationType.FRIEND, local_id="friend2").conversation
+    repo.set_listen_status(first.conversation_id, ListenStatus.LISTENING)
+    repo.set_listen_status(second.conversation_id, ListenStatus.LISTENING)
+    driver.switch_count = 0
+    driver.switched_conversation_ids.clear()
+
+    listener = ListenerManager(repo, driver, 1, lambda identity, messages: None)
+    listener._baselined_conversation_ids.update({first.conversation_id, second.conversation_id})
+    listener.poll_once()
+
+    assert driver.switch_count == 0
+    assert driver.switched_conversation_ids == []
+
+
+def test_listener_with_two_baselined_targets_only_unread_a_switches_a(tmp_path):
+    service, repo, driver, _, first = build_service(tmp_path, StaticAi(""))
+    second = service.add_listen_target("同事", ConversationType.FRIEND, local_id="friend2").conversation
+    repo.set_listen_status(first.conversation_id, ListenStatus.LISTENING)
+    repo.set_listen_status(second.conversation_id, ListenStatus.LISTENING)
+    driver.mark_unread(first)
+    driver.switch_count = 0
+    driver.switched_conversation_ids.clear()
+
+    listener = ListenerManager(repo, driver, 1, lambda identity, messages: None)
+    listener._baselined_conversation_ids.update({first.conversation_id, second.conversation_id})
+    listener.poll_once()
+
+    assert driver.switched_conversation_ids == [first.conversation_id]
+
+
+def test_listener_with_two_baselined_targets_both_unread_switches_both(tmp_path):
+    service, repo, driver, _, first = build_service(tmp_path, StaticAi(""))
+    second = service.add_listen_target("同事", ConversationType.FRIEND, local_id="friend2").conversation
+    repo.set_listen_status(first.conversation_id, ListenStatus.LISTENING)
+    repo.set_listen_status(second.conversation_id, ListenStatus.LISTENING)
+    driver.mark_unread(first)
+    driver.mark_unread(second)
+    driver.switch_count = 0
+    driver.switched_conversation_ids.clear()
+
+    listener = ListenerManager(repo, driver, 1, lambda identity, messages: None)
+    listener._baselined_conversation_ids.update({first.conversation_id, second.conversation_id})
+    listener.poll_once()
+
+    assert set(driver.switched_conversation_ids) == {first.conversation_id, second.conversation_id}
+    assert len(driver.switched_conversation_ids) == 2
+
+
 def test_mock_mode_main_chain_runs_through_queue_and_stores_self_message(tmp_path):
     service, repo, driver, queue, identity = build_service(tmp_path, EchoAiGateway())
 

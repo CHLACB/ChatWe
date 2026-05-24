@@ -85,6 +85,11 @@ class WechatApplicationService:
     def list_listen_targets(self) -> list[ListenTarget]:
         return self.repo.list_listen_targets()
 
+    def delete_listen_target(self, conversation_id: str) -> bool:
+        self.repo.set_listen_status(conversation_id, ListenStatus.STOPPED, "deleted")
+        self._pending_ai_turns.pop(conversation_id, None)
+        return self.repo.delete_listen_target(conversation_id)
+
     def bind_listener_controls(
         self,
         start_listener: Callable[[str], None],

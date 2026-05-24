@@ -101,6 +101,29 @@ class UiaWechatDriver(WechatDriver):
             except Exception as exc:
                 return DriverStatus(ok=False, mode="uia", message=str(exc), details=self._error_details("switch_conversation"))
 
+    def find_active_listen_targets(self, targets: list[ConversationIdentity]) -> list[ConversationIdentity]:
+        """Passively scan visible conversation-list items for unread/new markers.
+
+        This method deliberately does not call restore_and_activate(), does not
+        switch conversations, and does not send Ctrl+F. If the target is not
+        visible in the left conversation list, it is treated as inactive for this
+        polling round.
+        """
+        with self._lock:
+            if not targets:
+                return []
+            try:
+                self._ensure_ready()
+                items = self._conversation_list_items()
+            except Exception:
+                return []
+            active: list[ConversationIdentity] = []
+            for target in targets:
+                item = self._find_conversation_list_item(items, target)
+                if item is not None and self._conversation_item_has_unread_signal(item):
+                    active.append(target)
+            return active
+
     def get_current_conversation(self) -> ConversationIdentity | None:
         with self._lock:
             deadline = time.time() + 1.0
@@ -201,6 +224,11 @@ class UiaWechatDriver(WechatDriver):
     def dump_current_window_controls(self, depth: int = 6) -> list[dict]:
         self._ensure_ready()
         return nodes_to_dicts(dump_tree_nodes(self._window, max_depth=depth))
+
+    def dump_conversation_list_items(self) -> list[dict]:
+        self._ensure_ready()
+        items = self._conversation_list_items()
+        return [self._conversation_item_dump(item) for item in items]
 
     def _load_locators(self) -> dict[str, Any]:
         locators = builtin_locators()
@@ -392,6 +420,139 @@ class UiaWechatDriver(WechatDriver):
             return list(message_list.GetChildren())
         except Exception:
             return []
+
+    def _conversation_list_items(self) -> list[Any]:
+        conversation_list = self._locate_required("conversation_list")
+        try:
+            return list(conversation_list.GetChildren())
+        except Exception:
+            return []
+
+    def _find_conversation_list_item(self, items: list[Any], identity: ConversationIdentity) -> Any | None:
+        names = {identity.display_name, identity.remark_name, identity.local_id} - {None, ""}
+        for item in items:
+            item_names = self._control_texts(item)
+            if names & item_names:
+                return item
+        return None
+
+    def _conversation_item_has_unread_signal(self, item: Any) -> bool:
+        locator = (self._locators or {}).get("conversation_item_unread") or {}
+        if self._matches_configured_unread_signal(item, locator):
+            return True
+        return self._has_small_red_dot_candidate(item, locator)
+
+    def _matches_configured_unread_signal(self, item: Any, locator: dict[str, Any]) -> bool:
+        for child in self._iter_controls(item, max_depth=int(locator.get("max_depth", 4))):
+            name = sanitize_text(str(getattr(child, "Name", "") or "")).strip()
+            control_type = str(getattr(child, "ControlTypeName", "") or "")
+            class_name = str(getattr(child, "ClassName", "") or "")
+            if locator.get("name_matches"):
+                try:
+                    if re.search(str(locator["name_matches"]), name):
+                        return True
+                except re.error:
+                    pass
+            if locator.get("control_type") and control_type != locator["control_type"]:
+                continue
+            if locator.get("class_name") and class_name != locator["class_name"]:
+                continue
+            if locator.get("name_contains") and locator["name_contains"] not in name:
+                continue
+            if locator.get("size_range") and self._control_size_in_range(child, locator["size_range"]):
+                return True
+        return False
+
+    def _has_small_red_dot_candidate(self, item: Any, locator: dict[str, Any]) -> bool:
+        if locator.get("enable_small_pane_candidate", True) is False:
+            return False
+        item_rect = self._rect_tuple(item)
+        if item_rect is None:
+            return False
+        item_left, item_top, item_right, item_bottom = item_rect
+        for child in self._iter_controls(item, max_depth=int(locator.get("max_depth", 4))):
+            name = sanitize_text(str(getattr(child, "Name", "") or "")).strip()
+            control_type = str(getattr(child, "ControlTypeName", "") or "")
+            if name or control_type != "PaneControl":
+                continue
+            rect = self._rect_tuple(child)
+            if rect is None:
+                continue
+            left, top, right, bottom = rect
+            width = right - left
+            height = bottom - top
+            if not (8 <= width <= 28 and 8 <= height <= 28):
+                continue
+            center_x = (left + right) / 2
+            center_y = (top + bottom) / 2
+            if item_left <= center_x <= item_right and item_top <= center_y <= item_top + 35:
+                return True
+        return False
+
+    def _control_size_in_range(self, control: Any, size_range: dict[str, Any]) -> bool:
+        rect = self._rect_tuple(control)
+        if rect is None:
+            return False
+        width = rect[2] - rect[0]
+        height = rect[3] - rect[1]
+        return (
+            int(size_range.get("min_width", 0)) <= width <= int(size_range.get("max_width", 9999))
+            and int(size_range.get("min_height", 0)) <= height <= int(size_range.get("max_height", 9999))
+        )
+
+    def _control_texts(self, root: Any) -> set[str]:
+        texts: set[str] = set()
+        for control in self._iter_controls(root, max_depth=5):
+            name = sanitize_text(str(getattr(control, "Name", "") or "")).strip()
+            if name:
+                texts.add(name)
+        return texts
+
+    def _conversation_item_dump(self, item: Any) -> dict:
+        children = []
+        try:
+            direct_children = list(item.GetChildren())
+        except Exception:
+            direct_children = []
+        for child in direct_children:
+            children.append(
+                {
+                    "name": str(getattr(child, "Name", "") or ""),
+                    "control_type": str(getattr(child, "ControlTypeName", "") or ""),
+                    "class_name": str(getattr(child, "ClassName", "") or ""),
+                    "automation_id": str(getattr(child, "AutomationId", "") or ""),
+                    "bounding_rectangle": str(getattr(child, "BoundingRectangle", "") or ""),
+                    "children_count": self._children_count(child),
+                    "descendants": [
+                        {
+                            "name": str(getattr(grandchild, "Name", "") or ""),
+                            "control_type": str(getattr(grandchild, "ControlTypeName", "") or ""),
+                            "class_name": str(getattr(grandchild, "ClassName", "") or ""),
+                            "automation_id": str(getattr(grandchild, "AutomationId", "") or ""),
+                            "bounding_rectangle": str(getattr(grandchild, "BoundingRectangle", "") or ""),
+                            "children_count": self._children_count(grandchild),
+                        }
+                        for grandchild in self._iter_controls(child, max_depth=3)
+                        if grandchild is not child
+                    ],
+                }
+            )
+        return {
+            "name": str(getattr(item, "Name", "") or ""),
+            "control_type": str(getattr(item, "ControlTypeName", "") or ""),
+            "class_name": str(getattr(item, "ClassName", "") or ""),
+            "automation_id": str(getattr(item, "AutomationId", "") or ""),
+            "bounding_rectangle": str(getattr(item, "BoundingRectangle", "") or ""),
+            "children_count": self._children_count(item),
+            "has_unread_signal": self._conversation_item_has_unread_signal(item),
+            "children": children,
+        }
+
+    def _children_count(self, control: Any) -> int:
+        try:
+            return len(list(control.GetChildren()))
+        except Exception:
+            return 0
 
     def _visible_message_fingerprint(
         self,

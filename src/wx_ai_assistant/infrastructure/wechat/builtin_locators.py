@@ -43,6 +43,18 @@ WECHAT_391256_BUILTIN_LOCATORS: dict[str, Any] = {
         "region": "conversation_panel",
         "fallback": "失败时 dump 左侧会话列表",
     },
+    "conversation_item_unread": {
+        "max_depth": 4,
+        "enable_small_pane_candidate": True,
+        "size_range": {
+            "min_width": 8,
+            "max_width": 28,
+            "min_height": 8,
+            "max_height": 28,
+        },
+        "verification_source": "docs/wechat_filehelper_chat_dump.md 中部分未读会话项出现额外小 PaneControl；需用 scripts/dump_conversation_list_items.py 在本机继续确认红点/数字表现。",
+        "fallback": "无法确认未读信号时返回空列表，不主动切换会话；请 dump 左侧会话列表补充策略。",
+    },
     "navigation_avatar": {
         "control_type": "ButtonControl",
         "region": "navigation_top",

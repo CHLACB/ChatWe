@@ -11,12 +11,7 @@ from wx_ai_assistant.ports.wechat_driver import WechatDriver
 
 
 class ListenerManager:
-    """Polls listen targets.
-
-    This first version uses one worker loop and switches conversations one by one.
-    Later you can optimize by using independent chat windows, but the upper layers
-    do not need to change.
-    """
+    """Polls listen targets using passive detection before switching chats."""
 
     def __init__(
         self,
@@ -61,7 +56,14 @@ class ListenerManager:
 
     def poll_once(self) -> None:
         targets = [t for t in self.repo.list_listen_targets() if t.status == ListenStatus.LISTENING]
-        for target in targets:
+        baseline_targets = [
+            target for target in targets if target.conversation.conversation_id not in self._baselined_conversation_ids
+        ]
+        active_targets = self._find_active_targets([
+            target for target in targets if target.conversation.conversation_id in self._baselined_conversation_ids
+        ])
+
+        for target in [*baseline_targets, *active_targets]:
             try:
                 with self._driver_lock:
                     status = self.driver.switch_conversation(target.conversation)
@@ -77,6 +79,13 @@ class ListenerManager:
                 self.stop_target(target.conversation.conversation_id, str(exc))
         if self.on_after_poll:
             self.on_after_poll()
+
+    def _find_active_targets(self, targets) -> list:
+        if not targets:
+            return []
+        active_conversations = self.driver.find_active_listen_targets([target.conversation for target in targets])
+        active_ids = {identity.conversation_id for identity in active_conversations}
+        return [target for target in targets if target.conversation.conversation_id in active_ids]
 
     def _run(self) -> None:
         while not self._stop.is_set():
