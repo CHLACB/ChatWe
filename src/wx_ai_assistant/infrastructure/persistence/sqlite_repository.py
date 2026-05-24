@@ -357,6 +357,40 @@ class SqliteRepository:
                 ),
             )
 
+    def clear_conversation_memory(self, conversation_id: str) -> dict[str, int]:
+        with self._lock, self._conn:
+            messages = self._conn.execute("DELETE FROM messages WHERE conversation_id=?", (conversation_id,)).rowcount
+            ai_logs = self._conn.execute("DELETE FROM ai_decision_logs WHERE conversation_id=?", (conversation_id,)).rowcount
+            send_tasks = self._conn.execute("DELETE FROM send_tasks WHERE conversation_id=?", (conversation_id,)).rowcount
+        return {
+            "messages": int(messages or 0),
+            "ai_decision_logs": int(ai_logs or 0),
+            "send_tasks": int(send_tasks or 0),
+        }
+
+    def list_ai_decision_logs(
+        self,
+        conversation_id: str | None = None,
+        run_id: str | None = None,
+        limit: int = 20,
+    ) -> list[dict]:
+        query = "SELECT * FROM ai_decision_logs"
+        clauses: list[str] = []
+        params: list[str | int] = []
+        if conversation_id:
+            clauses.append("conversation_id=?")
+            params.append(conversation_id)
+        if run_id:
+            clauses.append("run_id=?")
+            params.append(run_id)
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(max(1, limit))
+        with self._lock:
+            rows = self._conn.execute(query, tuple(params)).fetchall()
+        return [self._row_to_ai_decision_log(row) for row in rows]
+
     def _ensure_ai_decision_log_columns(self) -> None:
         rows = self._conn.execute("PRAGMA table_info(ai_decision_logs)").fetchall()
         columns = {row["name"] for row in rows}
@@ -364,6 +398,38 @@ class SqliteRepository:
             self._conn.execute("ALTER TABLE ai_decision_logs ADD COLUMN conversation_profile TEXT NOT NULL DEFAULT '{}'")
         if "raw_state_json" not in columns:
             self._conn.execute("ALTER TABLE ai_decision_logs ADD COLUMN raw_state_json TEXT NOT NULL DEFAULT '{}'")
+
+    def _row_to_ai_decision_log(self, row: sqlite3.Row) -> dict:
+        def decode_json(key: str, default):
+            try:
+                return json.loads(row[key]) if row[key] else default
+            except Exception:
+                return default
+
+        return {
+            "run_id": row["run_id"],
+            "conversation_id": row["conversation_id"],
+            "trigger_message_id": row["trigger_message_id"],
+            "trigger_message": row["trigger_message"],
+            "display_name": row["display_name"],
+            "contact_policy": decode_json("contact_policy", {}),
+            "conversation_profile": decode_json("conversation_profile", {}),
+            "intent": row["intent"],
+            "emotion": row["emotion"],
+            "user_need": row["user_need"],
+            "relationship_signal": row["relationship_signal"],
+            "should_reply": bool(row["should_reply"]),
+            "no_reply_reason": row["no_reply_reason"],
+            "reply_strategy": row["reply_strategy"],
+            "draft_messages": decode_json("draft_messages", []),
+            "safety_action": row["safety_action"],
+            "safety_reasons": decode_json("safety_reasons", []),
+            "final_messages": decode_json("final_messages", []),
+            "done": bool(row["done"]),
+            "node_errors": decode_json("node_errors", []),
+            "raw_state_json": decode_json("raw_state_json", decode_json("raw_state", {})),
+            "created_at": row["created_at"],
+        }
 
     def _row_to_conversation(self, row: sqlite3.Row) -> ConversationIdentity:
         return ConversationIdentity(

@@ -1,7 +1,11 @@
 import threading
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
+from wx_ai_assistant.api.routes_admin import router as admin_router
 from wx_ai_assistant.api.routes_listen import router as listen_router
 from wx_ai_assistant.api.routes_messages import router as messages_router
 from wx_ai_assistant.api.routes_send import router as send_router
@@ -82,10 +86,19 @@ def create_app() -> FastAPI:
     app.include_router(listen_router)
     app.include_router(messages_router)
     app.include_router(send_router)
+    app.include_router(admin_router)
+    web_dir = Path(__file__).resolve().parent / "web"
+    if web_dir.exists():
+        app.mount("/web", StaticFiles(directory=web_dir), name="web")
 
     @app.get("/health")
     def health():
         return ok({"status": "ok", "driver_mode": settings.driver_mode, "ai_mode": settings.ai_mode})
+
+    @app.get("/")
+    @app.get("/admin")
+    def admin_page():
+        return FileResponse(web_dir / "admin.html")
 
     @app.on_event("shutdown")
     def shutdown():

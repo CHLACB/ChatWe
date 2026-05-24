@@ -134,6 +134,18 @@ class WechatApplicationService:
     def get_send_task(self, send_task_id: str):
         return self.repo.get_send_task(send_task_id)
 
+    def clear_conversation_memory(self, conversation_id: str) -> dict[str, int]:
+        self._pending_ai_turns.pop(conversation_id, None)
+        return self.repo.clear_conversation_memory(conversation_id)
+
+    def list_ai_decision_logs(
+        self,
+        conversation_id: str | None = None,
+        run_id: str | None = None,
+        limit: int = 20,
+    ) -> list[dict]:
+        return self.repo.list_ai_decision_logs(conversation_id=conversation_id, run_id=run_id, limit=limit)
+
     def poll_listeners_once(self) -> None:
         if self._poll_once is None:
             raise RuntimeError("监听调度器尚未绑定")

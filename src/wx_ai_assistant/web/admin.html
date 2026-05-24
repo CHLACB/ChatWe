@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ChatWe 本地控制台</title>
+    <link rel="stylesheet" href="/web/admin.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">CW</div>
+          <div>
+            <h1>ChatWe</h1>
+            <p>本地微信助手控制台</p>
+          </div>
+        </div>
+        <button class="nav active" data-view="desk">前台监控</button>
+        <button class="nav" data-view="settings">后台配置</button>
+        <div class="status-card">
+          <span id="health-dot" class="dot"></span>
+          <div>
+            <strong id="health-title">连接中</strong>
+            <p id="health-detail">正在读取本地服务</p>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div id="error-banner" class="error-banner hidden"></div>
+
+        <section id="view-desk" class="view active">
+          <header class="page-head">
+            <div>
+              <h2>前台监控</h2>
+              <p>联系人、监听、消息、AI 决策和发送状态集中在这里。</p>
+            </div>
+            <div class="head-actions">
+              <button id="refresh-btn" class="btn primary">刷新</button>
+            </div>
+          </header>
+
+          <section class="toolbar">
+            <label>
+              联系人名称
+              <input id="target-name" placeholder="例如 AAxc" />
+            </label>
+            <label>
+              备注 / local_id
+              <input id="target-local-id" placeholder="默认同联系人名称" />
+            </label>
+            <button id="add-target-btn" class="btn">增加监听对象</button>
+          </section>
+
+          <div class="layout">
+            <section class="panel target-panel">
+              <div class="panel-head">
+                <h3>监听列表</h3>
+                <span id="target-count" class="muted">0 个</span>
+              </div>
+              <div id="targets" class="target-list"></div>
+            </section>
+
+            <section class="panel message-panel">
+              <div class="panel-head">
+                <h3>消息</h3>
+                <div class="segmented">
+                  <button class="segment active" data-message-tab="history">本地历史</button>
+                  <button class="segment" data-message-tab="visible">当前快照</button>
+                </div>
+              </div>
+              <div id="messages" class="message-list empty">请选择一个监听对象。</div>
+              <div class="panel-actions">
+                <button id="clear-memory-btn" class="btn danger" disabled>清除本地记忆</button>
+              </div>
+            </section>
+
+            <section class="panel decision-panel">
+              <div class="panel-head">
+                <h3>AI 处理过程</h3>
+                <span class="muted">为后续多 Agent 阶段预留</span>
+              </div>
+              <div id="decision" class="decision empty">暂无决策记录。</div>
+            </section>
+
+            <section class="panel send-panel">
+              <div class="panel-head">
+                <h3>AI 发送消息</h3>
+                <span id="send-count" class="muted">0 条任务</span>
+              </div>
+              <div id="send-tasks" class="send-list empty">暂无发送任务。</div>
+            </section>
+          </div>
+        </section>
+
+        <section id="view-settings" class="view">
+          <header class="page-head">
+            <div>
+              <h2>后台配置</h2>
+              <p>模型、密钥、提示词、联系人策略和会话画像在这里维护。</p>
+            </div>
+            <button id="save-config-btn" class="btn primary">保存配置</button>
+          </header>
+
+          <div class="settings-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>模型连接</h3>
+                <span id="api-key-state" class="muted"></span>
+              </div>
+              <div class="form-grid">
+                <label>Base URL<input id="cfg-base-url" /></label>
+                <label>模型名<input id="cfg-model" /></label>
+                <label>API Key<input id="cfg-api-key" type="password" placeholder="留空表示不修改" /></label>
+                <label>Temperature<input id="cfg-temperature" type="number" step="0.1" /></label>
+                <label>Max Tokens<input id="cfg-max-tokens" type="number" /></label>
+                <label>Timeout 秒<input id="cfg-timeout" type="number" step="1" /></label>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>回复节奏</h3>
+              </div>
+              <div class="form-grid">
+                <label>主动模式
+                  <select id="cfg-proactive">
+                    <option value="off">off</option>
+                    <option value="on">on</option>
+                  </select>
+                </label>
+                <label>静默等待秒数<input id="cfg-quiet" type="number" step="0.5" /></label>
+                <label>重复回复保护秒数<input id="cfg-duplicate" type="number" step="1" /></label>
+                <label>每轮最多消息条数<input id="cfg-max-messages" type="number" /></label>
+              </div>
+            </section>
+
+            <section class="panel wide">
+              <div class="panel-head">
+                <h3>系统提示词库</h3>
+                <span class="muted">最高权限、回合规则、风格</span>
+              </div>
+              <label>核心系统提示词<textarea id="cfg-core-prompt"></textarea></label>
+              <label>微信回合提示词<textarea id="cfg-turn-prompt"></textarea></label>
+              <label>风格提示词<textarea id="cfg-style-prompt"></textarea></label>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>联系人策略</h3>
+              </div>
+              <textarea id="cfg-contact-policies" class="json-area"></textarea>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>会话画像</h3>
+              </div>
+              <textarea id="cfg-conversation-profiles" class="json-area"></textarea>
+            </section>
+
+            <section class="panel wide roadmap">
+              <div class="panel-head">
+                <h3>后续能力预留</h3>
+              </div>
+              <div class="roadmap-grid">
+                <div><strong>语义判断 Agent</strong><span>意图、情绪、风险、关系信号会扩展为阶段视图。</span></div>
+                <div><strong>向量记忆</strong><span>未来接入后放在后台配置，不干扰前台监控。</span></div>
+                <div><strong>多 Agent 过程</strong><span>前台 AI 处理过程区域可显示分步骤结果。</span></div>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="/web/admin.js"></script>
+  </body>
+</html>

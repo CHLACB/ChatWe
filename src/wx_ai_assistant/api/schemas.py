@@ -25,3 +25,21 @@ class MockTextMessageRequest(BaseModel):
     conversation_id: str
     content: str = Field(min_length=1)
     sender_name: str = "other"
+
+
+class AiConfigUpdateRequest(BaseModel):
+    base_url: str | None = None
+    api_key: str | None = None
+    model: str | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
+    timeout_seconds: float | None = None
+    proactive_mode: str | None = None
+    max_messages_per_turn: int | None = None
+    turn_quiet_seconds: float | None = None
+    duplicate_guard_seconds: float | None = None
+    core_prompt: str | None = None
+    turn_prompt: str | None = None
+    style_prompt: str | None = None
+    contact_policies_json: str | None = None
+    conversation_profiles_json: str | None = None

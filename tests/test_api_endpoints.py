@@ -51,3 +51,34 @@ def test_api_friend_only_send_task_query_and_poll_once(tmp_path, monkeypatch):
         diagnostics = response.json()["data"]
         assert diagnostics["settings"]["ai_api_key_configured"] is False
         assert "send_task_counts" in diagnostics
+
+
+def test_admin_page_and_overview_api(tmp_path, monkeypatch):
+    with build_client(tmp_path, monkeypatch) as client:
+        page = client.get("/admin")
+        assert page.status_code == 200
+        assert "ChatWe 本地控制台" in page.text
+
+        target = client.post(
+            "/listen/targets",
+            json={"display_name": "AAxc", "conversation_type": "friend", "local_id": "AAxc"},
+        ).json()["data"]
+        conversation_id = target["conversation"]["conversation_id"]
+        client.post(
+            "/messages/mock/text",
+            json={"conversation_id": conversation_id, "content": "你好", "sender_name": "friend"},
+        )
+
+        overview = client.get("/admin-api/overview")
+        assert overview.status_code == 200
+        data = overview.json()["data"]
+        assert data["targets"][0]["conversation"]["display_name"] == "AAxc"
+        assert data["messages_by_target"][conversation_id][-1]["content"] == "你好"
+
+        config = client.get("/admin-api/config")
+        assert config.status_code == 200
+        assert "api_key_configured" in config.json()["data"]
+
+        cleared = client.post(f"/admin-api/conversations/{conversation_id}/clear-memory")
+        assert cleared.status_code == 200
+        assert cleared.json()["data"]["messages"] >= 1
