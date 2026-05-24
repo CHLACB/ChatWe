@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from wx_ai_assistant.application.app_service import WechatApplicationService
+from wx_ai_assistant.application.ai_turn import AiTurnParser
 from wx_ai_assistant.application.context_builder import ContextBuilder
 from wx_ai_assistant.application.listener_manager import ListenerManager
 from wx_ai_assistant.application.message_ingestion import MessageIngestionService
@@ -85,6 +86,42 @@ def test_other_message_triggers_ai_and_nonempty_reply_creates_send_task(tmp_path
     assert ai.calls == 1
     assert len(tasks) == 1
     assert tasks[0].content == "reply"
+
+
+def test_ai_json_messages_are_sent_as_ai_chosen_boundaries(tmp_path):
+    ai = StaticAi('{"messages":["先这样","你看可以吗"],"done":true}')
+    service, repo, _, _, identity = build_service(tmp_path, ai)
+    service.ai_turn_parser = AiTurnParser(max_messages=3, strict_json=True)
+
+    service.handle_realtime_messages(identity, [other_text(identity)])
+
+    tasks = repo.list_pending_send_tasks()
+    assert ai.calls == 1
+    assert [task.content for task in tasks] == ["先这样", "你看可以吗"]
+
+
+def test_multiple_new_messages_in_one_poll_create_one_ai_turn(tmp_path):
+    ai = StaticAi('{"messages":["收到"],"done":true}')
+    service, repo, _, _, identity = build_service(tmp_path, ai)
+    service.ai_turn_parser = AiTurnParser(max_messages=3, strict_json=True)
+
+    service.handle_realtime_messages(identity, [other_text(identity, "第一句"), other_text(identity, "第二句")])
+
+    assert ai.calls == 1
+    tasks = repo.list_pending_send_tasks()
+    assert len(tasks) == 1
+    assert tasks[0].content == "收到"
+
+
+def test_ai_done_false_does_not_send_or_continue(tmp_path):
+    ai = StaticAi('{"messages":["还没说完"],"done":false}')
+    service, repo, _, _, identity = build_service(tmp_path, ai)
+    service.ai_turn_parser = AiTurnParser(max_messages=3, strict_json=True)
+
+    service.handle_realtime_messages(identity, [other_text(identity)])
+
+    assert ai.calls == 1
+    assert repo.list_pending_send_tasks() == []
 
 
 def test_repeated_realtime_fingerprint_does_not_trigger_ai_twice(tmp_path):

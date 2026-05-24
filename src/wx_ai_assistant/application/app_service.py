@@ -5,6 +5,7 @@ from typing import Callable
 from uuid import uuid5, NAMESPACE_URL
 
 from wx_ai_assistant.application.context_builder import ContextBuilder
+from wx_ai_assistant.application.ai_turn import AiTurnParser
 from wx_ai_assistant.application.message_ingestion import MessageIngestionService
 from wx_ai_assistant.application.send_queue import SendQueue
 from wx_ai_assistant.domain.enums import ConversationType, ListenStatus, SendTaskStatus
@@ -23,6 +24,7 @@ class WechatApplicationService:
         context_builder: ContextBuilder,
         ai: AiGateway,
         send_queue: SendQueue,
+        ai_turn_parser: AiTurnParser | None = None,
     ):
         self.repo = repo
         self.driver = driver
@@ -30,6 +32,7 @@ class WechatApplicationService:
         self.context_builder = context_builder
         self.ai = ai
         self.send_queue = send_queue
+        self.ai_turn_parser = ai_turn_parser or AiTurnParser(strict_json=False)
         self._start_listener: Callable[[str], None] | None = None
         self._stop_listener: Callable[[str, str | None], None] | None = None
         self._poll_once: Callable[[], None] | None = None
@@ -166,11 +169,16 @@ class WechatApplicationService:
         if self.repo.get_listen_target(identity.conversation_id) is None:
             return
         triggers = self.ingestion.ingest_realtime_messages(identity, messages)
-        for msg in triggers:
-            context = self.context_builder.build_context(identity, msg)
-            reply = self.ai.generate_reply(context=context, trigger_message=msg).strip()
-            if reply:
-                self.send_queue.enqueue(identity.conversation_id, reply, trigger_message_id=msg.message_id)
+        if not triggers:
+            return
+        msg = triggers[-1]
+        context = self.context_builder.build_context(identity, msg)
+        raw_reply = self.ai.generate_reply(context=context, trigger_message=msg).strip()
+        turn = self.ai_turn_parser.parse(raw_reply)
+        if not turn.done:
+            return
+        for reply in turn.messages:
+            self.send_queue.enqueue(identity.conversation_id, reply, trigger_message_id=msg.message_id)
 
     def handle_baseline_messages(self, identity: ConversationIdentity, messages: list[Message]) -> None:
         if self.repo.get_listen_target(identity.conversation_id) is None:

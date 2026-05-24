@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from wx_ai_assistant.application.app_service import WechatApplicationService  # noqa: E402
+from wx_ai_assistant.application.ai_turn import AiTurnParser  # noqa: E402
 from wx_ai_assistant.application.context_builder import ContextBuilder  # noqa: E402
 from wx_ai_assistant.application.listener_manager import ListenerManager  # noqa: E402
 from wx_ai_assistant.application.message_ingestion import MessageIngestionService  # noqa: E402
@@ -58,6 +59,7 @@ def main() -> int:
         context_builder,
         build_ai_gateway(settings, force_mode=args.ai_mode),
         send_queue,
+        AiTurnParser(max_messages=settings.ai_max_messages_per_turn, strict_json=settings.ai_strict_turn_json),
     )
     send_queue.on_failed = lambda conversation_id, error: repo.set_listen_status(conversation_id, ListenStatus.STOPPED, error)
     target = service.add_listen_target(args.target, ConversationType.FRIEND, remark_name=args.target, local_id=args.target)

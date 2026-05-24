@@ -4,6 +4,11 @@ app:
   poll_interval_seconds: 1.0
   ai_mode: dummy          # dummy | echo | openai_compatible
   ai_config: ./config/ai.local.env
+  ai_prompt_path: ./config/prompts/system.wechat_turn.md
+  ai_style_path: ./config/prompts/styles/natural_short.md
+  ai_proactive_mode: off  # off | on
+  ai_max_messages_per_turn: 3
+  ai_strict_turn_json: true
   history_mode: normalized_sqlite
   history_db_path: ./data/history_normalized.sqlite3
   wechat_locators: ./config/wechat_locators.local.json

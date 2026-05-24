@@ -23,6 +23,7 @@ dist\ChatWe-windows.zip
 - `start_api_uia.bat`：真实 UIA 模式启动
 - `selfcheck_uia.bat`：真实微信 UIA 自检入口
 - `config\ai.local.env`：本机 AI 密钥配置，默认复制自示例，解压后填写
+- `config\prompts\`：提示词库和风格库，可直接编辑
 - `scripts\`：诊断脚本
 - `docs\`：运行和求真文档
 
@@ -44,6 +45,15 @@ notepad config\ai.local.env
 ```
 
 至少填写 `APP_AI_API_KEY`。默认配置使用百炼 OpenAI 兼容接口和 `deepseek-v4-flash`。
+
+如果回复太长或太主动，优先修改：
+
+```bat
+notepad config\prompts\system.wechat_turn.md
+notepad config\prompts\styles\natural_short.md
+```
+
+默认要求 AI 输出 `{"messages":[...],"done":true}`，由 AI 自己决定每条微信消息的边界，程序不会硬拆句。
 
 自检会验证：
 

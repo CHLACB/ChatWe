@@ -7,6 +7,7 @@ from wx_ai_assistant.api.routes_messages import router as messages_router
 from wx_ai_assistant.api.routes_send import router as send_router
 from wx_ai_assistant.api.routes_system import router as system_router
 from wx_ai_assistant.application.app_service import WechatApplicationService
+from wx_ai_assistant.application.ai_turn import AiTurnParser
 from wx_ai_assistant.application.context_builder import ContextBuilder
 from wx_ai_assistant.application.listener_manager import ListenerManager
 from wx_ai_assistant.application.message_ingestion import MessageIngestionService
@@ -42,7 +43,15 @@ def create_app() -> FastAPI:
 
     # app_service is assigned after send_queue/listener to avoid circular callback issues.
     send_queue = SendQueue(repo, driver, verifier, on_sent=ingestion.insert_sent_message, driver_lock=driver_lock)
-    app_service = WechatApplicationService(repo, driver, ingestion, context_builder, ai, send_queue)
+    app_service = WechatApplicationService(
+        repo,
+        driver,
+        ingestion,
+        context_builder,
+        ai,
+        send_queue,
+        AiTurnParser(max_messages=settings.ai_max_messages_per_turn, strict_json=settings.ai_strict_turn_json),
+    )
 
     listener_manager = ListenerManager(
         repo=repo,

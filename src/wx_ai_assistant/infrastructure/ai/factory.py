@@ -3,6 +3,7 @@ from __future__ import annotations
 from wx_ai_assistant.core.config import Settings
 from wx_ai_assistant.infrastructure.ai.dummy_ai import DummyAiGateway, EchoAiGateway
 from wx_ai_assistant.infrastructure.ai.openai_compatible_ai import OpenAICompatibleAiGateway, OpenAICompatibleConfig
+from wx_ai_assistant.infrastructure.ai.prompt_library import compose_system_prompt
 from wx_ai_assistant.ports.ai_gateway import AiGateway
 
 
@@ -19,7 +20,12 @@ def build_ai_gateway(settings: Settings, force_mode: str | None = None) -> AiGat
                 temperature=settings.ai_temperature,
                 max_tokens=settings.ai_max_tokens,
                 timeout_seconds=settings.ai_timeout_seconds,
-                system_prompt=settings.ai_system_prompt,
+                system_prompt=compose_system_prompt(
+                    settings.ai_prompt_path,
+                    settings.ai_style_path,
+                    settings.ai_system_prompt,
+                    settings.ai_proactive_mode,
+                ),
                 extra_body=settings.ai_extra_body,
             )
         )

@@ -18,6 +18,11 @@ class Settings:
     ai_max_tokens: int
     ai_timeout_seconds: float
     ai_system_prompt: str
+    ai_prompt_path: Path
+    ai_style_path: Path
+    ai_proactive_mode: str
+    ai_max_messages_per_turn: int
+    ai_strict_turn_json: bool
     ai_extra_body: str
     history_mode: str
     history_db_path: Path
@@ -43,8 +48,13 @@ def load_settings() -> Settings:
         ai_timeout_seconds=float(os.getenv("APP_AI_TIMEOUT_SECONDS", "30")),
         ai_system_prompt=os.getenv(
             "APP_AI_SYSTEM_PROMPT",
-            "你是一个微信私聊助手。请用自然、简洁、友好的中文回复。只输出最终要发送给对方的文本，不要输出分析过程。",
+            "你是一个微信私聊助手。请只输出 JSON，不要输出分析过程。",
         ).strip(),
+        ai_prompt_path=Path(os.getenv("APP_AI_PROMPT_PATH", "./config/prompts/system.wechat_turn.md")),
+        ai_style_path=Path(os.getenv("APP_AI_STYLE_PATH", "./config/prompts/styles/natural_short.md")),
+        ai_proactive_mode=os.getenv("APP_AI_PROACTIVE_MODE", "off").strip().lower(),
+        ai_max_messages_per_turn=int(os.getenv("APP_AI_MAX_MESSAGES_PER_TURN", "3")),
+        ai_strict_turn_json=os.getenv("APP_AI_STRICT_TURN_JSON", "true").strip().lower() in {"1", "true", "yes", "on"},
         ai_extra_body=os.getenv("APP_AI_EXTRA_BODY", "").strip(),
         history_mode=os.getenv("APP_HISTORY_MODE", "normalized_sqlite").strip().lower(),
         history_db_path=Path(os.getenv("APP_HISTORY_DB_PATH", "./data/history_normalized.sqlite3")),

@@ -55,6 +55,7 @@ foreach ($dll in @("UIAutomationClient_VC140_X64.dll", "UIAutomationClient_VC140
 $appExample = (Resolve-Path -LiteralPath "config\app.example.yaml").Path
 $locatorExample = (Resolve-Path -LiteralPath "config\wechat_locators.example.json").Path
 $aiExample = (Resolve-Path -LiteralPath "config\ai.local.example.env").Path
+$promptPath = (Resolve-Path -LiteralPath "config\prompts").Path
 $docsPath = (Resolve-Path -LiteralPath "docs").Path
 
 Invoke-Checked $Python (@(
@@ -70,6 +71,7 @@ Invoke-Checked $Python (@(
     "--add-data", "$appExample;config",
     "--add-data", "$locatorExample;config",
     "--add-data", "$aiExample;config",
+    "--add-data", "$promptPath;config\prompts",
     "--add-data", "$docsPath;docs",
     "src\wx_ai_assistant\cli.py"
 ) + $binaryArgs)
@@ -79,6 +81,7 @@ Copy-Item -LiteralPath "scripts" -Destination "$OutDir\scripts" -Recurse -Force
 Copy-Item -LiteralPath "README.md" -Destination "$OutDir\README.md" -Force
 Copy-Item -LiteralPath "AGENTS.md" -Destination "$OutDir\AGENTS.md" -Force
 New-Item -ItemType Directory -Path "$OutDir\config" -Force | Out-Null
+Copy-Item -LiteralPath "config\prompts" -Destination "$OutDir\config\prompts" -Recurse -Force
 
 @"
 @echo off

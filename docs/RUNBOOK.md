@@ -128,6 +128,33 @@ APP_AI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 APP_AI_MODEL=deepseek-v4-flash
 ```
 
+提示词和风格可以独立修改：
+
+```text
+config/prompts/system.wechat_turn.md
+config/prompts/styles/natural_short.md
+```
+
+关键配置：
+
+```text
+APP_AI_PROMPT_PATH=./config/prompts/system.wechat_turn.md
+APP_AI_STYLE_PATH=./config/prompts/styles/natural_short.md
+APP_AI_PROACTIVE_MODE=off
+APP_AI_MAX_MESSAGES_PER_TURN=3
+APP_AI_STRICT_TURN_JSON=true
+```
+
+默认 `APP_AI_PROACTIVE_MODE=off` 是被动模式：只回应对方刚发来的内容，本轮回复完就停。改成 `on` 后允许适度主动追问，但仍然只输出一次 `messages` 数组，不会一直自我续写。
+
+AI 输出必须由模型自己决定微信消息边界：
+
+```json
+{"messages":["先这样","你看可以吗"],"done":true}
+```
+
+程序不会按标点拆分一大段；只会发送 `messages` 数组里的每个元素。`done=true` 表示本轮回复完成，系统等待对方下一条消息。
+
 也可以直接运行：
 
 ```powershell
@@ -269,8 +296,10 @@ scripts\start_friend_listener.cmd AAxc
 3. 启动监听 worker。
 4. 第一轮只建立可见消息基线，不回复旧消息。
 5. 对方每发来一条新文本，都执行 `入库 -> AI -> 发送队列 -> 发送后验证 -> 自己消息入库`。
-6. 自己发送的消息会入库，但不会触发 AI。
-7. 程序不会在一次回复后退出，按 `Ctrl+C` 才停止。
+6. 同一轮轮询中如果读到多条新对方消息，只调用一次 AI，以最后一条作为触发点，上下文里保留前面的消息。
+7. AI 通过 `messages + done=true` 明确本轮完成；发送完这些消息后系统等待对方下一条消息。
+8. 自己发送的消息会入库，但不会触发 AI。
+9. 程序不会在一次回复后退出，按 `Ctrl+C` 才停止。
 
 可以同时监听多个好友私聊：
 

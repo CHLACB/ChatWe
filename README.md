@@ -171,6 +171,21 @@ APP_AI_MODEL=deepseek-v4-flash
 
 `config\ai.local.env` 已被 `.gitignore` 忽略，不要提交密钥。AI 返回空文本时不会创建发送任务；非空文本只会进入发送队列。
 
+AI 对话提示词独立放在：
+
+```text
+config/prompts/system.wechat_turn.md
+config/prompts/styles/natural_short.md
+```
+
+默认是被动回合制：对方发来新消息后，AI 只输出本轮回复，输出 `done=true` 后停止，等待对方下一条消息。AI 必须自己用 JSON 决定要发几条微信消息：
+
+```json
+{"messages":["短句一","短句二"],"done":true}
+```
+
+程序不会按标点硬拆大段话，只会原样发送 AI 在 `messages` 数组里给出的边界。需要允许适度主动追问时，把 `config\ai.local.env` 里的 `APP_AI_PROACTIVE_MODE=off` 改成 `on`，但一轮仍然只调用一次 AI，发完就停。
+
 ## 真实好友自动回复回归
 
 先打开微信并确认目标好友可搜索，然后运行：

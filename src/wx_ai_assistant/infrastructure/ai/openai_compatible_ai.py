@@ -65,7 +65,10 @@ class OpenAICompatibleAiGateway(AiGateway):
                 {
                     "role": "user",
                     "content": (
-                        "下面是微信私聊上下文。请根据当前触发消息生成一条可以直接发送给对方的回复。\n\n"
+                        "下面是微信私聊上下文。请根据当前触发消息生成本轮回复。\n"
+                        "必须输出 JSON object，格式为 {\"messages\":[\"...\"],\"done\":true}。\n"
+                        "messages 中每个元素就是一条微信消息；不要让程序再拆分你的句子。\n"
+                        "本轮回复完成后 done 必须为 true，表示停在这里等待对方下一条消息。\n\n"
                         f"{context}\n\n"
                         f"触发消息: {trigger_message.content}"
                     ),
