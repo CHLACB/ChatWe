@@ -145,12 +145,12 @@ POST /send/text
 
 `APP_AI_MODE=echo` 时，对方文本消息会生成 echo 回复并进入发送队列。发送队列串行执行，发送成功后会把自己消息入库，但自己消息不会再次触发 AI。
 
-## 千问/百炼 OpenAI 兼容 AI 网关
+## LangGraph AI 网关
 
-真实 AI 通过 `AiGateway` 接口接入，不会直接操作微信。百炼/DashScope OpenAI 兼容模式可使用：
+真实 AI 通过 `AiGateway` 接口接入，不会直接操作微信。默认推荐 `APP_AI_MODE=langgraph`：内部使用 LangGraph 拆成“意图分析 -> 是否回复 -> 回复策略 -> 草稿 -> 自动安全检查 -> JSON 输出”，外部仍然只返回兼容 `AiTurnParser` 的 JSON。
 
 ```text
-APP_AI_MODE=openai_compatible
+APP_AI_MODE=langgraph
 APP_AI_CONFIG=./config/ai.local.env
 ```
 
@@ -169,7 +169,7 @@ APP_AI_API_KEY=你的百炼APIKey
 APP_AI_MODEL=deepseek-v4-flash
 ```
 
-`config\ai.local.env` 已被 `.gitignore` 忽略，不要提交密钥。AI 返回空文本时不会创建发送任务；非空文本只会进入发送队列。
+`config\ai.local.env` 已被 `.gitignore` 忽略，不要提交密钥。AI 返回空消息数组时不会创建发送任务；非空文本只会进入发送队列。旧的 `APP_AI_MODE=openai_compatible` 仍保留为回退模式。
 
 AI 对话提示词独立放在：
 
@@ -181,7 +181,7 @@ config/prompts/styles/natural_short.md
 
 `system.core.md` 是最高优先级系统提示词；`system.wechat_turn.md` 是微信回合协议；`styles/natural_short.md` 是说话风格。
 
-默认是被动回合制：对方发来新消息后，AI 只输出本轮回复，输出 `done=true` 后停止，等待对方下一条消息。AI 必须自己用 JSON 决定要发几条微信消息：
+默认是被动回合制：对方发来新消息后，LangGraph 只输出本轮回复，输出 `done=true` 后停止，等待对方下一条消息。最终必须用 JSON 决定要发几条微信消息：
 
 ```json
 {"messages":["短句一","短句二"],"done":true}
@@ -218,7 +218,7 @@ APP_DIAGNOSTICS_CONTEXT_CHARS=1200
 持续监听不要用一次性回归脚本，使用：
 
 ```powershell
-.\.conda\python.exe scripts\uia_friend_listener_run.py "AAxc" --ai-mode openai_compatible
+.\.conda\python.exe scripts\uia_friend_listener_run.py "AAxc" --ai-mode langgraph
 ```
 
 或：

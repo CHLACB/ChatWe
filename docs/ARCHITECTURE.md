@@ -147,3 +147,26 @@ stopped   未监听
 真实历史库适配 → 新 HistoryReader 实现
 真实 AI        → 新 AiGateway 实现
 ```
+
+## 11. LangGraph AI 网关
+
+当前推荐 AI 实现是 `APP_AI_MODE=langgraph`。它仍然实现 `AiGateway.generate_reply(context, trigger_message)`，因此应用服务层、监听调度层、发送队列和微信执行层不需要知道 LangGraph 的存在。
+
+LangGraph 内部节点：
+
+```text
+analyze_intent
+→ decide_reply
+→ plan_response
+→ draft_reply
+→ auto_safety_check
+→ format_output
+```
+
+约束：
+
+1. LangGraph 只负责决策和生成文本。
+2. LangGraph 不调用微信 Driver。
+3. LangGraph 不写数据库。
+4. LangGraph 不创建监听对象。
+5. 最终输出仍为 `{"messages":[...],"done":true}`，由应用服务层解析后进入发送队列。

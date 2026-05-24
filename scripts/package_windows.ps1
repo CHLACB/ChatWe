@@ -86,7 +86,7 @@ Copy-Item -LiteralPath "config\prompts" -Destination "$OutDir\config\prompts" -R
 @"
 @echo off
 set APP_DRIVER_MODE=uia
-set APP_AI_MODE=openai_compatible
+set APP_AI_MODE=langgraph
 set APP_AI_CONFIG=config\ai.local.env
 set APP_WECHAT_LOCATORS=config\wechat_locators.local.json
 ChatWe\ChatWe.exe api

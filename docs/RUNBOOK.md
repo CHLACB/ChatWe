@@ -112,7 +112,7 @@ APP_WECHAT_LOCATORS=./config/wechat_locators.local.json
 
 5. 重启服务。
 
-如果要启用千问/百炼 OpenAI 兼容 AI 网关：
+如果要启用千问/百炼 LangGraph AI 网关：
 
 ```powershell
 copy config\ai.local.example.env config\ai.local.env
@@ -122,7 +122,7 @@ notepad config\ai.local.env
 填写 `APP_AI_API_KEY` 后设置：
 
 ```text
-APP_AI_MODE=openai_compatible
+APP_AI_MODE=langgraph
 APP_AI_CONFIG=./config/ai.local.env
 APP_AI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 APP_AI_MODEL=deepseek-v4-flash
@@ -155,7 +155,15 @@ APP_AI_DUPLICATE_GUARD_SECONDS=120.0
 APP_DIAGNOSTICS_CONTEXT_CHARS=1200
 ```
 
-默认 `APP_AI_PROACTIVE_MODE=off` 是被动模式：只回应对方刚发来的内容，本轮回复完就停。改成 `on` 后允许适度主动追问，但仍然只输出一次 `messages` 数组，不会一直自我续写。
+默认 `APP_AI_PROACTIVE_MODE=off` 是被动模式：只回应对方刚发来的内容，本轮回复完就停。改成 `on` 后允许适度主动追问，但 LangGraph 仍然只输出一次 `messages` 数组，不会一直自我续写。
+
+`APP_AI_MODE=langgraph` 时，AI 网关内部流程是：
+
+```text
+analyze_intent -> decide_reply -> plan_response -> draft_reply -> auto_safety_check -> format_output
+```
+
+如果 `decide_reply` 判断不需要回复，会直接输出 `{"messages":[],"done":true}`。旧的 `APP_AI_MODE=openai_compatible` 仍可作为回退模式。
 
 AI 输出必须由模型自己决定微信消息边界：
 
@@ -295,7 +303,7 @@ python scripts/uia_listener_poll_once_test.py AAxc 2
 一次性测试脚本成功回复一次后会退出。真正常驻运行请使用：
 
 ```powershell
-.\.conda\python.exe scripts\uia_friend_listener_run.py "AAxc" --ai-mode openai_compatible --interval 1.5
+.\.conda\python.exe scripts\uia_friend_listener_run.py "AAxc" --ai-mode langgraph --interval 1.5
 ```
 
 启动时默认会清理上次残留的 `pending/sending` 发送任务，避免旧回复补发。需要恢复旧任务时显式加：
@@ -339,7 +347,7 @@ scripts\start_friend_listener.cmd AAxc
 可以同时监听多个好友私聊：
 
 ```powershell
-.\.conda\python.exe scripts\uia_friend_listener_run.py "AAxc" "文件传输助手" --ai-mode openai_compatible
+.\.conda\python.exe scripts\uia_friend_listener_run.py "AAxc" "文件传输助手" --ai-mode langgraph
 ```
 
 ## 13. 长时间稳定性检查

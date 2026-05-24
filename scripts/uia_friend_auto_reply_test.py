@@ -30,7 +30,7 @@ def main() -> int:
     parser.add_argument("target", help="好友私聊名称，例如 AAxc")
     parser.add_argument("--timeout", type=float, default=180.0, help="等待新消息秒数")
     parser.add_argument("--interval", type=float, default=1.5, help="轮询间隔秒数")
-    parser.add_argument("--ai-mode", default=None, help="覆盖 APP_AI_MODE，例如 echo/openai_compatible")
+    parser.add_argument("--ai-mode", default=None, help="覆盖 APP_AI_MODE，例如 echo/openai_compatible/langgraph")
     args = parser.parse_args()
 
     settings = load_settings()

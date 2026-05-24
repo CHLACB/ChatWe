@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory=$true)]
     [string[]]$Target,
-    [string]$AiMode = "openai_compatible",
+    [string]$AiMode = "langgraph",
     [double]$Interval = 1.5,
     [double]$StatusInterval = 10,
     [switch]$ResumePending,

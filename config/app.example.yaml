@@ -2,12 +2,12 @@ app:
   driver_mode: mock       # mock | uia
   db_path: ./data/app.sqlite3
   poll_interval_seconds: 1.0
-  ai_mode: dummy          # dummy | echo | openai_compatible
+  ai_mode: dummy          # dummy | echo | openai_compatible | langgraph
   ai_config: ./config/ai.local.env
   ai_prompt_path: ./config/prompts/system.wechat_turn.md
   ai_style_path: ./config/prompts/styles/natural_short.md
   ai_proactive_mode: off  # off | on
-  ai_max_messages_per_turn: 3
+  ai_max_messages_per_turn: 2
   ai_strict_turn_json: true
   ai_turn_quiet_seconds: 5.0
   ai_duplicate_guard_seconds: 120.0

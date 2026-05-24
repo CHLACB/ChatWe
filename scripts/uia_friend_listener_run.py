@@ -29,7 +29,7 @@ def main() -> int:
     parser.add_argument("targets", nargs="+", help="好友私聊名称，可传多个，例如 AAxc 文件传输助手")
     parser.add_argument("--interval", type=float, default=None, help="监听轮询间隔秒数，默认读取 APP_POLL_INTERVAL_SECONDS")
     parser.add_argument("--status-interval", type=float, default=10.0, help="状态输出间隔秒数")
-    parser.add_argument("--ai-mode", default=None, help="覆盖 APP_AI_MODE，例如 echo/openai_compatible")
+    parser.add_argument("--ai-mode", default=None, help="覆盖 APP_AI_MODE，例如 echo/openai_compatible/langgraph")
     parser.add_argument("--max-seconds", type=float, default=0.0, help="调试用最大运行秒数；默认 0 表示一直运行")
     parser.add_argument("--retry-stopped", action=argparse.BooleanOptionalAction, default=True, help="临时 UIA 切换/标题读取失败时自动重试")
     parser.add_argument("--retry-interval", type=float, default=8.0, help="自动重试 stopped 监听对象的最小间隔秒数")
