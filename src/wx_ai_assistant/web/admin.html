@@ -18,13 +18,20 @@
         </div>
         <button class="nav active" data-view="desk">前台监控</button>
         <button class="nav" data-view="settings">后台配置</button>
-        <div class="status-card">
+        <button id="status-card" class="status-card">
           <span id="health-dot" class="dot"></span>
           <div>
             <strong id="health-title">连接中</strong>
             <p id="health-detail">正在读取本地服务</p>
           </div>
-        </div>
+        </button>
+        <section class="side-targets">
+          <div class="side-section-head">
+            <span>监听列表</span>
+            <button id="open-targets-btn" class="side-link">详情</button>
+          </div>
+          <div id="side-targets" class="side-target-list"></div>
+        </section>
       </aside>
 
       <main class="main">
@@ -54,17 +61,12 @@
           </section>
 
           <div class="layout">
-            <section class="panel target-panel">
-              <div class="panel-head">
-                <h3>监听列表</h3>
-                <span id="target-count" class="muted">0 个</span>
-              </div>
-              <div id="targets" class="target-list"></div>
-            </section>
-
             <section class="panel message-panel">
               <div class="panel-head">
-                <h3>消息</h3>
+                <div>
+                  <h3>消息</h3>
+                  <p id="message-target-name" class="panel-subtitle">请选择一个监听对象</p>
+                </div>
                 <div class="segmented">
                   <button class="segment active" data-message-tab="history">本地历史</button>
                   <button class="segment" data-message-tab="visible">当前快照</button>
@@ -175,6 +177,32 @@
           </div>
         </section>
       </main>
+    </div>
+
+    <div id="target-modal" class="modal hidden">
+      <div class="modal-card target-modal-card">
+        <div class="modal-head">
+          <div>
+            <h3>监听列表</h3>
+            <p id="target-count" class="muted">0 个</p>
+          </div>
+          <button id="close-targets-btn" class="btn">关闭</button>
+        </div>
+        <div id="targets" class="target-list"></div>
+      </div>
+    </div>
+
+    <div id="status-modal" class="modal hidden">
+      <div class="modal-card status-modal-card">
+        <div class="modal-head">
+          <div>
+            <h3>运行状态</h3>
+            <p class="muted">API、微信窗口、当前会话和最近错误</p>
+          </div>
+          <button id="close-status-btn" class="btn">关闭</button>
+        </div>
+        <div id="status-detail" class="status-detail"></div>
+      </div>
     </div>
     <script src="/web/admin.js"></script>
   </body>

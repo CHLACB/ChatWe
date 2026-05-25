@@ -39,13 +39,20 @@ function bindActions() {
   $("add-target-btn").addEventListener("click", addTarget);
   $("clear-memory-btn").addEventListener("click", clearMemory);
   $("save-config-btn").addEventListener("click", saveConfig);
+  $("open-targets-btn").addEventListener("click", () => openModal("target-modal"));
+  $("close-targets-btn").addEventListener("click", () => closeModal("target-modal"));
+  $("status-card").addEventListener("click", () => {
+    renderStatusDetail();
+    openModal("status-modal");
+  });
+  $("close-status-btn").addEventListener("click", () => closeModal("status-modal"));
 }
 
 async function refreshAll() {
   try {
     const overview = await api("/admin-api/overview?limit=80");
     state.overview = overview.data;
-    setHealth(true, "服务正常", `${overview.data.targets.length} 个监听对象`);
+    updateHealth(overview.data);
     if (!state.selectedConversationId && overview.data.targets.length) {
       state.selectedConversationId = overview.data.targets[0].conversation.conversation_id;
     }
@@ -148,9 +155,11 @@ async function saveConfig() {
 
 function renderDesk() {
   renderTargets();
+  renderSideTargets();
   renderMessages();
   renderDecision();
   renderSendTasks();
+  renderStatusDetail();
 }
 
 function renderTargets() {
@@ -193,15 +202,42 @@ function renderTargets() {
   $("clear-memory-btn").disabled = !state.selectedConversationId;
 }
 
+function renderSideTargets() {
+  const targets = state.overview?.targets || [];
+  const root = $("side-targets");
+  if (!targets.length) {
+    root.innerHTML = `<button class="side-target-item muted">暂无监听对象</button>`;
+    return;
+  }
+  root.innerHTML = targets.map((target) => {
+    const id = target.conversation.conversation_id;
+    const active = id === state.selectedConversationId ? " active" : "";
+    const error = target.last_error ? " error" : "";
+    return `
+      <button class="side-target-item${active}${error}" data-id="${escapeHtml(id)}">
+        <span>${escapeHtml(target.conversation.display_name)}</span>
+        <em>${escapeHtml(target.status)}</em>
+      </button>
+    `;
+  }).join("");
+  root.querySelectorAll(".side-target-item[data-id]").forEach((button) => {
+    button.onclick = () => {
+      state.selectedConversationId = button.dataset.id;
+      renderDesk();
+    };
+  });
+}
+
 function renderMessages() {
   const id = state.selectedConversationId;
   const root = $("messages");
+  const target = id ? targetById(id) : null;
+  $("message-target-name").textContent = target ? `当前对象：${target.conversation.display_name}` : "请选择一个监听对象";
   if (!id) {
     root.innerHTML = "请选择一个监听对象。";
     root.className = "message-list empty";
     return;
   }
-  const target = targetById(id);
   let messages = [];
   if (state.messageTab === "visible") {
     const snapshots = state.overview?.diagnostics?.last_visible_snapshots || [];
@@ -239,26 +275,26 @@ function renderDecision() {
   const latest = decisions[0];
   root.className = "decision";
   root.innerHTML = `
-    ${stage("触发", [`${latest.display_name || "-"}：${latest.trigger_message || "-"}`, `run_id：${latest.run_id}`])}
+    ${stage("触发消息", [`${latest.display_name || "-"}：${latest.trigger_message || "-"}`, `run_id：${latest.run_id}`], "trigger-stage")}
     ${stage("语义判断", [
       `意图：${latest.intent || "-"}`,
       `情绪：${latest.emotion || "-"}`,
       `需求：${latest.user_need || "-"}`,
       `关系信号：${latest.relationship_signal || "-"}`,
-    ])}
+    ], "analysis-stage")}
     ${stage("回复决策", [
       `是否回复：${latest.should_reply ? "是" : "否"}`,
       `不回复原因：${latest.no_reply_reason || "-"}`,
       `策略：${latest.reply_strategy || "-"}`,
-    ])}
+    ], "decision-stage")}
     ${stage("安全与画像", [
       `动作：${latest.safety_action || "-"}`,
       `联系人策略：${policySummary(latest.contact_policy)}`,
       `会话画像：${profileSummary(latest.conversation_profile)}`,
       ...(latest.safety_reasons || []).map((item) => `原因：${item}`),
-    ])}
-    ${stage("草稿", latest.draft_messages || [])}
-    ${stage("最终发送", latest.final_messages || [])}
+    ], "safety-stage")}
+    ${stage("草稿", latest.draft_messages || [], "draft-stage")}
+    ${stage("最终发送", latest.final_messages || [], "final-stage")}
   `;
 }
 
@@ -303,10 +339,10 @@ function fillConfig(config) {
   $("cfg-conversation-profiles").value = formatJson(config.conversation_profiles_json);
 }
 
-function stage(title, items) {
+function stage(title, items, className = "") {
   const safeItems = (items || []).filter(Boolean);
   if (!safeItems.length) return "";
-  return `<div class="stage"><h4>${escapeHtml(title)}</h4><ul>${safeItems.map((item) => `<li>${escapeHtml(String(item))}</li>`).join("")}</ul></div>`;
+  return `<div class="stage ${escapeHtml(className)}"><h4>${escapeHtml(title)}</h4><ul>${safeItems.map((item) => `<li>${escapeHtml(String(item))}</li>`).join("")}</ul></div>`;
 }
 
 function policySummary(policy = {}) {
@@ -348,6 +384,72 @@ function setHealth(ok, title, detail) {
   $("health-dot").className = ok ? "dot ok" : "dot bad";
   $("health-title").textContent = title;
   $("health-detail").textContent = detail;
+}
+
+function updateHealth(data) {
+  const driver = data?.diagnostics?.driver_status || {};
+  const current = data?.diagnostics?.current_conversation;
+  const targets = data?.targets || [];
+  const stoppedWithErrors = targets.filter((target) => target.last_error);
+  if (driver.ok && current) {
+    setHealth(true, "微信连接正常", `当前：${current.display_name || "-"} · ${targets.length} 个监听对象`);
+  } else if (driver.ok) {
+    $("health-dot").className = "dot warn";
+    $("health-title").textContent = "微信待确认";
+    $("health-detail").textContent = stoppedWithErrors.length
+      ? `${stoppedWithErrors.length} 个监听对象异常`
+      : "已找到微信窗口，当前会话未确认";
+  } else {
+    setHealth(false, "微信连接失败", driver.message || "未完成微信自检");
+  }
+}
+
+function renderStatusDetail() {
+  const root = $("status-detail");
+  if (!root || !state.overview) return;
+  const diagnostics = state.overview.diagnostics || {};
+  const driver = diagnostics.driver_status || {};
+  const current = diagnostics.current_conversation;
+  const targets = state.overview.targets || [];
+  const errors = targets.filter((target) => target.last_error);
+  root.innerHTML = `
+    ${statusRow("API 服务", "ok", "FastAPI 已响应")}
+    ${statusRow("微信 Driver", driver.ok ? "ok" : "failed", driver.message || "-")}
+    ${statusRow("当前会话", current ? "ok" : "warning", current?.display_name || "无法读取当前会话身份")}
+    ${statusRow("监听对象", errors.length ? "warning" : "ok", `${targets.length} 个，异常 ${errors.length} 个`)}
+    ${errors.length ? `<div class="status-errors">${errors.map((target) => `
+      <div class="status-error-item">
+        <strong>${escapeHtml(target.conversation.display_name)}</strong>
+        <p>${explainTargetError(target.last_error)}</p>
+      </div>
+    `).join("")}</div>` : ""}
+  `;
+}
+
+function statusRow(label, status, text) {
+  return `
+    <div class="status-row">
+      <span class="mini-dot ${escapeHtml(status)}"></span>
+      <strong>${escapeHtml(label)}</strong>
+      <p>${escapeHtml(text)}</p>
+    </div>
+  `;
+}
+
+function explainTargetError(error) {
+  const text = String(error || "");
+  if (text.includes("search_box") || text.includes("搜索框")) {
+    return `${text}。原因：切换会话需要先定位微信左侧搜索框，但当前 UIA locator 没匹配到。请确认微信窗口可见、当前使用的是已验证的 config/wechat_locators.local.json，必要时重新 dump 搜索框控件。`;
+  }
+  return text || "-";
+}
+
+function openModal(id) {
+  $(id).classList.remove("hidden");
+}
+
+function closeModal(id) {
+  $(id).classList.add("hidden");
 }
 
 function showError(message, isError = true) {
