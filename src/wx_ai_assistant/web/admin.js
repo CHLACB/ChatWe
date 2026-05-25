@@ -165,16 +165,26 @@ function renderDesk() {
 function renderTargets() {
   const targets = state.overview?.targets || [];
   $("target-count").textContent = `${targets.length} 个`;
+  const selected = state.selectedConversationId ? targetById(state.selectedConversationId) : null;
+  const title = selected ? `监听详情：${selected.conversation.display_name}` : "监听列表";
+  const subtitle = selected
+    ? `${selected.status}${selected.last_error ? " · 有异常" : ""}`
+    : `${targets.length} 个监听对象`;
+  $("target-modal-title").textContent = title;
+  $("target-count").textContent = subtitle;
   const root = $("targets");
   if (!targets.length) {
     root.innerHTML = `<div class="empty">还没有监听对象。</div>`;
     return;
   }
-  root.innerHTML = targets.map((target) => {
+  const orderedTargets = selected
+    ? [selected, ...targets.filter((target) => target.conversation.conversation_id !== selected.conversation.conversation_id)]
+    : targets;
+  root.innerHTML = orderedTargets.map((target) => {
     const id = target.conversation.conversation_id;
     const status = target.status;
     const active = id === state.selectedConversationId ? " active" : "";
-    const error = target.last_error ? `<p class="muted">错误：${escapeHtml(target.last_error)}</p>` : "";
+    const error = target.last_error ? `<p class="target-error">错误：${escapeHtml(explainTargetError(target.last_error))}</p>` : "";
     return `
       <div class="target-item${active}" data-id="${escapeHtml(id)}">
         <div class="target-top">
@@ -213,9 +223,13 @@ function renderSideTargets() {
     const id = target.conversation.conversation_id;
     const active = id === state.selectedConversationId ? " active" : "";
     const error = target.last_error ? " error" : "";
+    const errorLine = target.last_error ? `<small>${escapeHtml(shortError(target.last_error))}</small>` : "";
     return `
       <button class="side-target-item${active}${error}" data-id="${escapeHtml(id)}">
-        <span>${escapeHtml(target.conversation.display_name)}</span>
+        <span class="side-target-main">
+          <strong>${escapeHtml(target.conversation.display_name)}</strong>
+          ${errorLine}
+        </span>
         <em>${escapeHtml(target.status)}</em>
       </button>
     `;
@@ -224,6 +238,7 @@ function renderSideTargets() {
     button.onclick = () => {
       state.selectedConversationId = button.dataset.id;
       renderDesk();
+      openModal("target-modal");
     };
   });
 }
@@ -391,16 +406,18 @@ function updateHealth(data) {
   const current = data?.diagnostics?.current_conversation;
   const targets = data?.targets || [];
   const stoppedWithErrors = targets.filter((target) => target.last_error);
-  if (driver.ok && current) {
+  if (!driver.ok) {
+    setHealth(false, "微信连接失败", driver.message || "未完成微信自检");
+  } else if (stoppedWithErrors.length) {
+    $("health-dot").className = "dot warn";
+    $("health-title").textContent = "监听需处理";
+    $("health-detail").textContent = `${stoppedWithErrors.length} 个对象异常，点左侧对象查看`;
+  } else if (current) {
     setHealth(true, "微信连接正常", `当前：${current.display_name || "-"} · ${targets.length} 个监听对象`);
-  } else if (driver.ok) {
+  } else {
     $("health-dot").className = "dot warn";
     $("health-title").textContent = "微信待确认";
-    $("health-detail").textContent = stoppedWithErrors.length
-      ? `${stoppedWithErrors.length} 个监听对象异常`
-      : "已找到微信窗口，当前会话未确认";
-  } else {
-    setHealth(false, "微信连接失败", driver.message || "未完成微信自检");
+    $("health-detail").textContent = "已找到微信窗口，当前会话未确认";
   }
 }
 
@@ -416,13 +433,7 @@ function renderStatusDetail() {
     ${statusRow("API 服务", "ok", "FastAPI 已响应")}
     ${statusRow("微信 Driver", driver.ok ? "ok" : "failed", driver.message || "-")}
     ${statusRow("当前会话", current ? "ok" : "warning", current?.display_name || "无法读取当前会话身份")}
-    ${statusRow("监听对象", errors.length ? "warning" : "ok", `${targets.length} 个，异常 ${errors.length} 个`)}
-    ${errors.length ? `<div class="status-errors">${errors.map((target) => `
-      <div class="status-error-item">
-        <strong>${escapeHtml(target.conversation.display_name)}</strong>
-        <p>${explainTargetError(target.last_error)}</p>
-      </div>
-    `).join("")}</div>` : ""}
+    ${statusRow("监听对象", errors.length ? "warning" : "ok", `${targets.length} 个，异常 ${errors.length} 个；具体错误见左侧监听列表或详情弹窗`)}
   `;
 }
 
@@ -441,7 +452,18 @@ function explainTargetError(error) {
   if (text.includes("search_box") || text.includes("搜索框")) {
     return `${text}。原因：切换会话需要先定位微信左侧搜索框，但当前 UIA locator 没匹配到。请确认微信窗口可见、当前使用的是已验证的 config/wechat_locators.local.json，必要时重新 dump 搜索框控件。`;
   }
+  if (text.includes("chat_title") || text.includes("聊天标题") || text.includes("当前聊天标题")) {
+    return `${text}。原因：切换会话后系统无法读取右侧聊天标题，不能确认当前会话是不是目标对象。为防串聊，监听会停止。请先手动打开该聊天并重新验证 chat_title/message_list/input_box。`;
+  }
+  if (text.includes("无法读取当前会话身份")) {
+    return `${text}。原因：当前微信右侧没有暴露可验证的聊天标题或输入框名称，系统无法做入库前身份验证。`;
+  }
   return text || "-";
+}
+
+function shortError(error) {
+  const text = explainTargetError(error);
+  return text.length > 70 ? `${text.slice(0, 70)}…` : text;
 }
 
 function openModal(id) {

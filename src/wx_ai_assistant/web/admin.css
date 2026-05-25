@@ -148,7 +148,8 @@ h3 { font-size: 15px; }
   color: #edf2f8;
   border-radius: 9px;
   padding: 8px 9px;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   justify-content: space-between;
   gap: 8px;
   cursor: pointer;
@@ -159,10 +160,27 @@ h3 { font-size: 15px; }
   border-color: rgba(158,197,255,.45);
 }
 .side-target-item.error { border-color: rgba(255, 132, 132, .5); }
+.side-target-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.side-target-main strong,
+.side-target-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.side-target-main small {
+  color: #ffc6c6;
+  font-size: 11px;
+  line-height: 1.35;
+}
 .side-target-item em {
   font-style: normal;
   color: #c8ced8;
   font-size: 12px;
+  align-self: start;
 }
 
 .main {
@@ -314,6 +332,12 @@ textarea {
 }
 .target-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; margin-top: 10px; }
 .target-actions .btn { height: 30px; padding: 0 8px; }
+.target-error {
+  margin-top: 7px;
+  color: #7a3434;
+  line-height: 1.55;
+  word-break: break-word;
+}
 .badge {
   border-radius: 999px;
   padding: 3px 8px;
@@ -511,22 +535,6 @@ textarea {
 .mini-dot.ok { background: var(--ok); }
 .mini-dot.failed { background: var(--danger); }
 .mini-dot.warning { background: var(--warn); }
-.status-errors {
-  display: grid;
-  gap: 8px;
-}
-.status-error-item {
-  border: 1px solid rgba(201, 53, 53, .25);
-  border-radius: 10px;
-  padding: 10px;
-  background: rgba(255, 244, 244, .74);
-}
-.status-error-item p {
-  margin-top: 5px;
-  color: #7a3434;
-  line-height: 1.5;
-}
-
 @media (max-width: 1280px) {
   body { overflow: auto; min-width: 0; }
   .shell { grid-template-columns: 1fr; min-height: 100vh; }
@@ -534,12 +542,18 @@ textarea {
   .view.active { min-height: 0; }
   .sidebar {
     display: grid;
-    grid-template-columns: 1fr 140px 140px;
+    grid-template-columns: 1fr 140px 140px minmax(220px, 320px);
     gap: 10px;
-    align-items: center;
+    align-items: start;
   }
   .brand { margin: 0; }
-  .status-card, .side-targets { display: none; }
+  .status-card { margin-top: 0; }
+  .side-targets {
+    margin-top: 0;
+    border-top: 0;
+    padding-top: 0;
+  }
+  .side-target-list { max-height: 180px; }
   .layout, .settings-grid, .toolbar {
     display: grid;
     grid-template-columns: 1fr;
