@@ -24,6 +24,7 @@ class ListenerManager:
         on_after_poll: Callable[[], None] | None = None,
         driver_lock: threading.RLock | None = None,
         debug_logging: bool = False,
+        transient_error_limit: int = 3,
     ):
         self.repo = repo
         self.driver = driver
@@ -35,7 +36,9 @@ class ListenerManager:
         self._thread: threading.Thread | None = None
         self._driver_lock = driver_lock or threading.RLock()
         self._baselined_conversation_ids: set[str] = set()
+        self._transient_error_counts: dict[str, int] = {}
         self.debug_logging = debug_logging
+        self.transient_error_limit = max(1, transient_error_limit)
 
     def start_worker(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -56,6 +59,13 @@ class ListenerManager:
 
     def stop_target(self, conversation_id: str, reason: str | None = None) -> None:
         self.repo.set_listen_status(conversation_id, ListenStatus.STOPPED, reason)
+        self._transient_error_counts.pop(conversation_id, None)
+
+    def resume_target(self, conversation_id: str) -> None:
+        """Resume a transiently failed target without clearing its baseline."""
+        self.repo.set_listen_status(conversation_id, ListenStatus.LISTENING, None)
+        self._transient_error_counts.pop(conversation_id, None)
+        self.start_worker()
 
     def poll_once(self) -> None:
         targets = [t for t in self.repo.list_listen_targets() if t.status == ListenStatus.LISTENING]
@@ -95,8 +105,9 @@ class ListenerManager:
                     elif messages:
                         self._message_snapshot(target.conversation.display_name, messages)
                         self.on_messages(target.conversation, messages)
+                    self._clear_target_error(target.conversation.conversation_id)
             except Exception as exc:
-                self.stop_target(target.conversation.conversation_id, str(exc))
+                self._handle_target_error(target.conversation.conversation_id, str(exc))
                 self._log(
                     "target_error",
                     target=target.conversation.display_name,
@@ -131,3 +142,34 @@ class ListenerManager:
     def _message_snapshot(self, target: str, messages: list[Message]) -> None:
         if self.debug_logging:
             print_message_snapshot(target, messages)
+
+    def _clear_target_error(self, conversation_id: str) -> None:
+        self._transient_error_counts.pop(conversation_id, None)
+        self.repo.set_listen_status(conversation_id, ListenStatus.LISTENING, None)
+
+    def _handle_target_error(self, conversation_id: str, error: str) -> None:
+        if self._is_transient_error(error):
+            count = self._transient_error_counts.get(conversation_id, 0) + 1
+            self._transient_error_counts[conversation_id] = count
+            if count < self.transient_error_limit:
+                self.repo.set_listen_status(
+                    conversation_id,
+                    ListenStatus.LISTENING,
+                    f"{error}；临时 UIA 失败，正在重试 {count}/{self.transient_error_limit - 1}",
+                )
+                return
+        self.stop_target(conversation_id, error)
+
+    def _is_transient_error(self, error: str) -> bool:
+        markers = [
+            "search_box",
+            "搜索框",
+            "Ctrl+F",
+            "焦点未落到左侧搜索框",
+            "切换会话后无法读取当前聊天标题",
+            "无法读取当前会话身份",
+            "未找到 chat_title 控件",
+            "未找到 message_list 控件",
+            "未找到 input_box 控件",
+        ]
+        return any(marker in error for marker in markers)

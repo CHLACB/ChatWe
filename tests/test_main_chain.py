@@ -381,6 +381,28 @@ def test_single_listener_failure_stops_only_that_target(tmp_path):
     assert repo.get_listen_target(second.conversation_id).status == ListenStatus.LISTENING
 
 
+def test_transient_search_box_failure_retries_before_stopping(tmp_path):
+    service, repo, _, _, identity = build_service(tmp_path, StaticAi(""))
+    repo.set_listen_status(identity.conversation_id, ListenStatus.LISTENING)
+
+    class SearchBoxBadDriver(MockWechatDriver):
+        def switch_conversation(self, identity):
+            return DriverStatus(ok=False, mode="mock", message="未找到 search_box 控件")
+
+    listener = ListenerManager(repo, SearchBoxBadDriver(), 1, lambda identity, messages: None, transient_error_limit=3)
+    listener.poll_once()
+
+    target = repo.get_listen_target(identity.conversation_id)
+    assert target.status == ListenStatus.LISTENING
+    assert "正在重试" in (target.last_error or "")
+
+    listener.poll_once()
+    assert repo.get_listen_target(identity.conversation_id).status == ListenStatus.LISTENING
+
+    listener.poll_once()
+    assert repo.get_listen_target(identity.conversation_id).status == ListenStatus.STOPPED
+
+
 def test_listener_first_successful_poll_baselines_visible_messages_without_ai(tmp_path):
     ai = StaticAi("reply")
     service, repo, driver, _, identity = build_service(tmp_path, ai)

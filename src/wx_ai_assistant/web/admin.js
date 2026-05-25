@@ -281,15 +281,27 @@ function renderMessages() {
 function renderDecision() {
   const id = state.selectedConversationId;
   const decisions = (state.overview?.ai_decisions || []).filter((item) => !id || item.conversation_id === id);
+  const pendingTurns = (state.overview?.diagnostics?.pending_ai_turns || []).filter((item) => !id || item.conversation_id === id);
+  const aiErrors = (state.overview?.diagnostics?.last_ai_errors || []).filter((item) => !id || item.conversation_id === id);
   const root = $("decision");
-  if (!decisions.length) {
+  if (!decisions.length && !pendingTurns.length && !aiErrors.length) {
     root.className = "decision empty";
-    root.innerHTML = "暂无决策记录。";
+    root.innerHTML = "暂无决策记录。若刚收到对方消息，会先等待静默时间后再启动 AI。";
+    return;
+  }
+  if (!decisions.length) {
+    root.className = "decision";
+    root.innerHTML = `
+      ${pendingTurns.length ? stage("等待 AI", pendingTurns.map((turn) => `已收到：${turn.trigger_content || "-"}；等待静默 ${turn.age_seconds || 0}s`), "trigger-stage") : ""}
+      ${aiErrors.length ? stage("AI 错误", aiErrors.map((error) => `${error.display_name || "-"}：${error.error || "-"}`), "safety-stage") : ""}
+    `;
     return;
   }
   const latest = decisions[0];
   root.className = "decision";
   root.innerHTML = `
+    ${pendingTurns.length ? stage("等待下一轮", pendingTurns.map((turn) => `已收到：${turn.trigger_content || "-"}；等待静默 ${turn.age_seconds || 0}s`), "trigger-stage") : ""}
+    ${aiErrors.length ? stage("最近 AI 错误", aiErrors.slice(0, 2).map((error) => `${error.display_name || "-"}：${error.error || "-"}`), "safety-stage") : ""}
     ${stage("触发消息", [`${latest.display_name || "-"}：${latest.trigger_message || "-"}`, `run_id：${latest.run_id}`], "trigger-stage")}
     ${stage("语义判断", [
       `意图：${latest.intent || "-"}`,

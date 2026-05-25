@@ -195,7 +195,7 @@ def _restart_transient_stopped_targets(repo: SqliteRepository, listener: Listene
             continue
         if not _is_transient_listener_error(target.last_error):
             continue
-        listener.start_target(target.conversation.conversation_id)
+        listener.resume_target(target.conversation.conversation_id)
         restarted += 1
     return restarted
 
@@ -208,8 +208,11 @@ def _is_transient_listener_error(error: str | None) -> bool:
         "无法读取当前会话身份",
         "Ctrl+F",
         "焦点未落到左侧搜索框",
+        "search_box",
+        "搜索框",
         "未找到 chat_title 控件",
         "未找到 message_list 控件",
+        "未找到 input_box 控件",
     ]
     return any(marker in error for marker in transient_markers)
 
