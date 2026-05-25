@@ -77,22 +77,36 @@ class ListenerManager:
         active_targets = self._find_active_targets([
             target for target in targets if target.conversation.conversation_id in self._baselined_conversation_ids
         ])
+        current_open_target = self._find_current_open_target([
+            target
+            for target in targets
+            if target.conversation.conversation_id in self._baselined_conversation_ids
+            and target.conversation.conversation_id not in {active.conversation.conversation_id for active in active_targets}
+        ])
         if active_targets:
             self._log(
                 "unread_detected",
                 action="switch_and_read",
                 details={"active_targets": len(active_targets)},
             )
+        elif current_open_target is not None:
+            self._log("current_open_detected", target=current_open_target.conversation.display_name, action="read_current")
         elif targets and not baseline_targets:
             self._log("no_active_targets", details={"listening_targets": len(targets)})
 
-        for target in [*baseline_targets, *active_targets]:
+        work_items = [
+            *[(target, True) for target in baseline_targets],
+            *[(target, True) for target in active_targets],
+            *([(current_open_target, False)] if current_open_target is not None else []),
+        ]
+        for target, should_switch in work_items:
             try:
-                self._log("switch_and_read", target=target.conversation.display_name)
+                self._log("switch_and_read" if should_switch else "read_current", target=target.conversation.display_name)
                 with self._driver_lock:
-                    status = self.driver.switch_conversation(target.conversation)
-                    if not status.ok:
-                        raise RuntimeError(status.message)
+                    if should_switch:
+                        status = self.driver.switch_conversation(target.conversation)
+                        if not status.ok:
+                            raise RuntimeError(status.message)
                     messages = self.driver.read_visible_text_messages(target.conversation)
                     if target.conversation.conversation_id not in self._baselined_conversation_ids:
                         self.on_baseline_messages(target.conversation, messages)
@@ -123,6 +137,26 @@ class ListenerManager:
         active_conversations = self.driver.find_active_listen_targets([target.conversation for target in targets])
         active_ids = {identity.conversation_id for identity in active_conversations}
         return [target for target in targets if target.conversation.conversation_id in active_ids]
+
+    def _find_current_open_target(self, targets) -> object | None:
+        if not targets:
+            return None
+        try:
+            with self._driver_lock:
+                current = self.driver.get_current_conversation()
+        except Exception:
+            return None
+        if current is None:
+            return None
+        for target in targets:
+            if self._identity_matches(target.conversation, current):
+                return target
+        return None
+
+    def _identity_matches(self, expected: ConversationIdentity, actual: ConversationIdentity) -> bool:
+        expected_names = {expected.display_name, expected.remark_name, expected.local_id} - {None, ""}
+        actual_names = {actual.display_name, actual.remark_name, actual.local_id} - {None, ""}
+        return expected.conversation_id == actual.conversation_id or bool(expected_names & actual_names)
 
     def _run(self) -> None:
         while not self._stop.is_set():

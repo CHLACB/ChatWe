@@ -448,6 +448,34 @@ def test_listener_with_two_baselined_targets_no_unread_does_not_switch(tmp_path)
     assert driver.switched_conversation_ids == []
 
 
+def test_listener_reads_current_open_target_without_unread_or_switching(tmp_path):
+    ai = StaticAi("reply")
+    service, repo, driver, _, first = build_service(tmp_path, ai)
+    second = service.add_listen_target("同事", ConversationType.FRIEND, local_id="friend2").conversation
+    repo.set_listen_status(first.conversation_id, ListenStatus.LISTENING)
+    repo.set_listen_status(second.conversation_id, ListenStatus.LISTENING)
+    driver.switch_conversation(first)
+    driver.switch_count = 0
+    driver.switched_conversation_ids.clear()
+    driver.inject_other_text(first, "当前聊天里的新消息", "friend")
+    driver.clear_unread(first)
+
+    listener = ListenerManager(
+        repo,
+        driver,
+        1,
+        service.handle_realtime_messages,
+        on_after_poll=lambda: service.flush_ready_ai_turns(force=True),
+    )
+    listener._baselined_conversation_ids.update({first.conversation_id, second.conversation_id})
+    listener.poll_once()
+
+    assert driver.switch_count == 0
+    assert driver.switched_conversation_ids == []
+    assert ai.calls == 1
+    assert repo.list_pending_send_tasks()[0].content == "reply"
+
+
 def test_listener_with_two_baselined_targets_only_unread_a_switches_a(tmp_path):
     service, repo, driver, _, first = build_service(tmp_path, StaticAi(""))
     second = service.add_listen_target("同事", ConversationType.FRIEND, local_id="friend2").conversation
