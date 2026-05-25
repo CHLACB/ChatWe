@@ -69,6 +69,7 @@ def main() -> int:
         ai_turn_quiet_seconds=settings.ai_turn_quiet_seconds,
         ai_duplicate_guard_seconds=settings.ai_duplicate_guard_seconds,
         diagnostics_context_chars=settings.diagnostics_context_chars,
+        driver_lock=driver_lock,
     )
     listener = ListenerManager(
         repo=repo,

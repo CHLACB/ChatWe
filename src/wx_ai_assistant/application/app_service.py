@@ -37,6 +37,7 @@ class WechatApplicationService:
         ai_turn_quiet_seconds: float = 0.0,
         ai_duplicate_guard_seconds: float = 120.0,
         diagnostics_context_chars: int = 1200,
+        driver_lock=None,
     ):
         self.repo = repo
         self.driver = driver
@@ -48,6 +49,7 @@ class WechatApplicationService:
         self.ai_turn_quiet_seconds = max(0.0, ai_turn_quiet_seconds)
         self.ai_duplicate_guard_seconds = max(0.0, ai_duplicate_guard_seconds)
         self.diagnostics_context_chars = max(0, diagnostics_context_chars)
+        self.driver_lock = driver_lock
         self._pending_ai_turns: dict[str, PendingAiTurn] = {}
         self._recent_trigger_keys: dict[str, float] = {}
         self._last_visible_snapshots: list[dict] = []
@@ -152,7 +154,8 @@ class WechatApplicationService:
         self._poll_once()
 
     def current_conversation(self) -> ConversationIdentity | None:
-        return self.driver.get_current_conversation()
+        with self._driver_guard():
+            return self.driver.get_current_conversation()
 
     def diagnostics_snapshot(self) -> dict:
         targets = self.repo.list_listen_targets()
@@ -166,11 +169,13 @@ class WechatApplicationService:
             for target in targets
         }
         try:
-            driver_status = self.driver.status().__dict__
+            with self._driver_guard():
+                driver_status = self.driver.status().__dict__
         except Exception as exc:
             driver_status = {"ok": False, "message": str(exc)}
         try:
-            current = self.driver.get_current_conversation()
+            with self._driver_guard():
+                current = self.driver.get_current_conversation()
         except Exception:
             current = None
 
@@ -359,3 +364,10 @@ class WechatApplicationService:
     def _ensure_friend_conversation(self, conversation_type: ConversationType) -> None:
         if conversation_type != ConversationType.FRIEND:
             raise ValueError("第一阶段只支持好友私聊，不支持群聊")
+
+    def _driver_guard(self):
+        if self.driver_lock is None:
+            from contextlib import nullcontext
+
+            return nullcontext()
+        return self.driver_lock
