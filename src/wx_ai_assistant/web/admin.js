@@ -126,6 +126,13 @@ async function clearMemory() {
   });
 }
 
+async function retrySendTask(id) {
+  await action(async () => {
+    await api(`/send/tasks/${encodeURIComponent(id)}/retry`, { method: "POST" });
+    await refreshAll();
+  });
+}
+
 async function saveConfig() {
   await action(async () => {
     await api("/admin-api/config", {
@@ -337,15 +344,19 @@ function renderSendTasks() {
   }
   root.className = "send-list";
   root.innerHTML = tasks.map((task) => `
-    <div class="send-item">
+    <div class="send-item" data-send-id="${escapeHtml(task.send_task_id)}">
       <div class="send-top">
         <strong>${escapeHtml(task.content || "")}</strong>
         <span class="badge ${escapeHtml(task.status)}">${escapeHtml(task.status)}</span>
       </div>
       <div class="send-meta">${escapeHtml(task.created_at || "")}</div>
       ${task.error_message ? `<div class="send-content">错误：${escapeHtml(task.error_message)}</div>` : ""}
+      ${task.status === "failed" ? `<div class="send-actions"><button class="btn" data-act="retry-send">重新发送</button></div>` : ""}
     </div>
   `).join("");
+  root.querySelectorAll('[data-act="retry-send"]').forEach((button) => {
+    button.onclick = () => retrySendTask(button.closest(".send-item").dataset.sendId);
+  });
 }
 
 function fillConfig(config) {

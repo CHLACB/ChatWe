@@ -37,3 +37,13 @@ def get_task(send_task_id: str, request: Request):
     if task is None:
         raise HTTPException(status_code=404, detail="发送任务不存在")
     return ok(asdict(task))
+
+
+@router.post("/tasks/{send_task_id}/retry")
+def retry_task(send_task_id: str, request: Request):
+    app_service = request.app.state.app_service
+    try:
+        task = app_service.retry_send_task(send_task_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ok(asdict(task), "发送任务已重新加入队列")

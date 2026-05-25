@@ -72,6 +72,8 @@ class ListenerManager:
 
     def poll_once(self) -> None:
         targets = [t for t in self.repo.list_listen_targets() if t.status == ListenStatus.LISTENING]
+        if targets:
+            self._restore_wechat_foreground()
         baseline_targets = [
             target for target in targets if target.conversation.conversation_id not in self._baselined_conversation_ids
         ]
@@ -106,6 +108,7 @@ class ListenerManager:
             try:
                 self._log("switch_and_read" if should_switch else "read_current", target=target.conversation.display_name)
                 with self._driver_lock:
+                    self._restore_wechat_foreground_locked()
                     if should_switch:
                         status = self.driver.switch_conversation(target.conversation)
                         if not status.ok:
@@ -232,3 +235,15 @@ class ListenerManager:
             "未找到 input_box 控件",
         ]
         return any(marker in error for marker in markers)
+
+    def _restore_wechat_foreground(self) -> None:
+        with self._driver_lock:
+            self._restore_wechat_foreground_locked()
+
+    def _restore_wechat_foreground_locked(self) -> None:
+        restorer = getattr(self.driver, "restore_and_activate", None)
+        if not callable(restorer):
+            return
+        status = restorer()
+        if not getattr(status, "ok", False):
+            raise RuntimeError(getattr(status, "message", "无法激活微信窗口"))

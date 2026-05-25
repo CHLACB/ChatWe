@@ -165,6 +165,7 @@ class UiaWechatDriver(WechatDriver):
     def read_visible_text_messages(self, identity: ConversationIdentity) -> list[Message]:
         with self._lock:
             self._ensure_ready()
+            self.restore_and_activate()
             message_list = self._locate_required("message_list")
             self._mark_identity_verified_for_ingest(identity)
             messages: list[Message] = []
@@ -822,6 +823,7 @@ class UiaWechatDriver(WechatDriver):
 
     def _send_configured_method(self, identity: ConversationIdentity, input_box: Any, send_button: Any | None, content: str) -> str:
         method = ((self._locators or {}).get("send_behavior") or {}).get("method", "clipboard_alt_s")
+        self.restore_and_activate()
         self._focus_input_box_no_mouse(input_box)
         self._clear_input_no_mouse()
 

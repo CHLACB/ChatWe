@@ -1,5 +1,7 @@
 from fastapi.testclient import TestClient
 
+from wx_ai_assistant.domain.enums import SendTaskStatus
+
 
 def build_client(tmp_path, monkeypatch):
     monkeypatch.setenv("APP_DRIVER_MODE", "mock")
@@ -42,6 +44,11 @@ def test_api_friend_only_send_task_query_and_poll_once(tmp_path, monkeypatch):
         response = client.get(f"/send/tasks/{send_task_id}")
         assert response.status_code == 200
         assert response.json()["data"]["content"] == "hello"
+
+        client.app.state.repo.update_send_task(send_task_id, SendTaskStatus.FAILED, "focus failed")
+        response = client.post(f"/send/tasks/{send_task_id}/retry")
+        assert response.status_code == 200
+        assert response.json()["data"]["status"] == "pending"
 
         response = client.get("/system/current-conversation")
         assert response.status_code == 200

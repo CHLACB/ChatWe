@@ -106,6 +106,7 @@ class WechatApplicationService:
     def start_listen_target(self, conversation_id: str) -> None:
         if self._start_listener is None:
             raise RuntimeError("监听调度器尚未绑定")
+        self._restore_wechat_foreground()
         self._start_listener(conversation_id)
 
     def stop_listen_target(self, conversation_id: str, reason: str | None = None) -> None:
@@ -135,6 +136,20 @@ class WechatApplicationService:
 
     def get_send_task(self, send_task_id: str):
         return self.repo.get_send_task(send_task_id)
+
+    def retry_send_task(self, send_task_id: str):
+        task = self.repo.get_send_task(send_task_id)
+        if task is None:
+            raise ValueError("发送任务不存在")
+        if task.status != SendTaskStatus.FAILED:
+            raise ValueError("只有 failed 发送任务可以重试")
+        self._restore_wechat_foreground()
+        if not self.repo.reset_send_task_for_retry(send_task_id):
+            raise ValueError("发送任务状态已变化，无法重试")
+        retried = self.repo.get_send_task(send_task_id)
+        if retried is None:
+            raise ValueError("发送任务不存在")
+        return retried
 
     def clear_conversation_memory(self, conversation_id: str) -> dict[str, int]:
         self._pending_ai_turns.pop(conversation_id, None)
@@ -371,3 +386,12 @@ class WechatApplicationService:
 
             return nullcontext()
         return self.driver_lock
+
+    def _restore_wechat_foreground(self) -> None:
+        restorer = getattr(self.driver, "restore_and_activate", None)
+        if not callable(restorer):
+            return
+        with self._driver_guard():
+            status = restorer()
+            if not getattr(status, "ok", False):
+                raise RuntimeError(getattr(status, "message", "无法激活微信窗口"))

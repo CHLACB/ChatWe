@@ -264,6 +264,18 @@ class SqliteRepository:
                 (status.value, sent_at, error_message, task_id),
             )
 
+    def reset_send_task_for_retry(self, task_id: str) -> bool:
+        with self._lock, self._conn:
+            cursor = self._conn.execute(
+                """
+                UPDATE send_tasks
+                SET status=?, sent_at=NULL, error_message=NULL
+                WHERE send_task_id=? AND status=?
+                """,
+                (SendTaskStatus.PENDING.value, task_id, SendTaskStatus.FAILED.value),
+            )
+            return cursor.rowcount > 0
+
     def fail_unfinished_send_tasks(self, error_message: str) -> int:
         with self._lock, self._conn:
             cursor = self._conn.execute(

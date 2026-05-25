@@ -374,6 +374,18 @@ def test_startup_can_mark_unfinished_send_tasks_failed(tmp_path):
     assert repo.get_send_task(second.send_task_id).status == SendTaskStatus.FAILED
 
 
+def test_failed_send_task_can_be_retried(tmp_path):
+    service, repo, _, _, identity = build_service(tmp_path, StaticAi(""))
+    task = service.send_text_manually(identity.conversation_id, "retry me")
+    repo.update_send_task(task.send_task_id, SendTaskStatus.FAILED, "temporary focus failure")
+
+    retried = service.retry_send_task(task.send_task_id)
+
+    assert retried.status == SendTaskStatus.PENDING
+    assert retried.error_message is None
+    assert repo.list_pending_send_tasks()[0].send_task_id == task.send_task_id
+
+
 def test_send_queue_marks_failed_when_after_send_verification_fails(tmp_path):
     service, repo, _, queue, identity = build_service(tmp_path, StaticAi(""))
     task = service.send_text_manually(identity.conversation_id, "reply")
