@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections import Counter
 from typing import Callable
 
 from wx_ai_assistant.domain.enums import ListenStatus
@@ -37,6 +38,7 @@ class ListenerManager:
         self._driver_lock = driver_lock or threading.RLock()
         self._baselined_conversation_ids: set[str] = set()
         self._transient_error_counts: dict[str, int] = {}
+        self._visible_message_counts: dict[str, Counter[str]] = {}
         self.debug_logging = debug_logging
         self.transient_error_limit = max(1, transient_error_limit)
 
@@ -55,6 +57,7 @@ class ListenerManager:
     def start_target(self, conversation_id: str) -> None:
         self.repo.set_listen_status(conversation_id, ListenStatus.LISTENING, None)
         self._baselined_conversation_ids.discard(conversation_id)
+        self._visible_message_counts.pop(conversation_id, None)
         self.start_worker()
 
     def stop_target(self, conversation_id: str, reason: str | None = None) -> None:
@@ -111,14 +114,17 @@ class ListenerManager:
                     if target.conversation.conversation_id not in self._baselined_conversation_ids:
                         self.on_baseline_messages(target.conversation, messages)
                         self._baselined_conversation_ids.add(target.conversation.conversation_id)
+                        self._remember_visible_messages(target.conversation.conversation_id, messages)
                         self._log(
                             "baseline_done",
                             target=target.conversation.display_name,
                             details={"messages": len(messages)},
                         )
                     elif messages:
-                        self._message_snapshot(target.conversation.display_name, messages)
-                        self.on_messages(target.conversation, messages)
+                        new_messages = self._visible_delta(target.conversation.conversation_id, messages)
+                        if new_messages:
+                            self._message_snapshot(target.conversation.display_name, new_messages)
+                            self.on_messages(target.conversation, new_messages)
                     self._clear_target_error(target.conversation.conversation_id)
             except Exception as exc:
                 self._handle_target_error(target.conversation.conversation_id, str(exc))
@@ -176,6 +182,25 @@ class ListenerManager:
     def _message_snapshot(self, target: str, messages: list[Message]) -> None:
         if self.debug_logging:
             print_message_snapshot(target, messages)
+
+    def _remember_visible_messages(self, conversation_id: str, messages: list[Message]) -> None:
+        self._visible_message_counts[conversation_id] = Counter(self._visible_key(message) for message in messages)
+
+    def _visible_delta(self, conversation_id: str, messages: list[Message]) -> list[Message]:
+        previous = self._visible_message_counts.get(conversation_id, Counter())
+        current: Counter[str] = Counter()
+        emitted: list[Message] = []
+        for message in messages:
+            key = self._visible_key(message)
+            current[key] += 1
+            if current[key] > previous.get(key, 0):
+                emitted.append(message)
+        self._visible_message_counts[conversation_id] = current
+        return emitted
+
+    def _visible_key(self, message: Message) -> str:
+        content = " ".join((message.content or "").split())
+        return "|".join([message.sender_type.value, message.message_type.value, content])
 
     def _clear_target_error(self, conversation_id: str) -> None:
         self._transient_error_counts.pop(conversation_id, None)

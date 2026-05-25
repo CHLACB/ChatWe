@@ -225,6 +225,44 @@ def test_old_other_before_visible_self_does_not_trigger_again(tmp_path):
     assert [task.content for task in repo.list_pending_send_tasks()] == ["reply"]
 
 
+def test_listener_emits_only_visible_delta_when_old_messages_shift(tmp_path):
+    ai = StaticAi("reply")
+    service, repo, driver, _, identity = build_service(tmp_path, ai)
+    repo.set_listen_status(identity.conversation_id, ListenStatus.LISTENING)
+    driver.inject_other_text(identity, "旧消息", "friend")
+
+    listener = ListenerManager(
+        repo,
+        driver,
+        1,
+        service.handle_realtime_messages,
+        on_baseline_messages=service.handle_baseline_messages,
+        on_after_poll=lambda: service.flush_ready_ai_turns(force=True),
+    )
+    listener.poll_once()
+
+    driver.inject_other_text(identity, "新消息", "friend")
+    listener.poll_once()
+
+    contents = [message.content for message in repo.list_recent_messages(identity.conversation_id)]
+    assert contents == ["旧消息", "新消息"]
+    assert ai.calls == 1
+    assert repo.list_pending_send_tasks()[0].content == "reply"
+
+
+def test_visible_self_after_send_queue_does_not_duplicate_stored_self_message(tmp_path):
+    service, repo, _, _, identity = build_service(tmp_path, StaticAi(""))
+    service.ingestion.insert_sent_message(identity, "已经发送")
+
+    visible_self = self_text(identity, "已经发送")
+    visible_self.fingerprint = "uia-visible-self-different-position"
+    service.handle_realtime_messages(identity, [visible_self])
+
+    messages = repo.list_recent_messages(identity.conversation_id)
+    assert len(messages) == 1
+    assert messages[0].content == "已经发送"
+
+
 def test_duplicate_guard_suppresses_same_other_content_with_changed_fingerprint(tmp_path):
     ai = StaticAi("reply")
     service, repo, _, _, identity = build_service(tmp_path, ai)

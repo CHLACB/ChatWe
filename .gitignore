@@ -1,5 +1,6 @@
 .conda/
 .pytest_cache/
+.pytest_tmp*/
 .packaging_tmp/
 build/
 dist/

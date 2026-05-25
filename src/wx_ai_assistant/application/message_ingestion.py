@@ -29,6 +29,8 @@ class MessageIngestionService:
             msg.content = sanitize_text(msg.content)
             if msg.sender_name:
                 msg.sender_name = sanitize_text(msg.sender_name)
+            if self._is_duplicate_visible_self(identity, msg):
+                continue
             if not msg.fingerprint:
                 msg.fingerprint = self._fingerprint(msg)
             inserted = self.repo.insert_message_if_new(msg)
@@ -106,3 +108,16 @@ class MessageIngestionService:
         if last_self_index < 0:
             return messages
         return messages[last_self_index + 1 :]
+
+    def _is_duplicate_visible_self(self, identity: ConversationIdentity, msg: Message) -> bool:
+        if msg.sender_type != SenderType.SELF or msg.message_type != MessageType.TEXT:
+            return False
+        content = " ".join(msg.content.split())
+        if not content:
+            return False
+        for recent in reversed(self.repo.list_recent_messages(identity.conversation_id, limit=20)):
+            if recent.sender_type != SenderType.SELF or recent.message_type != MessageType.TEXT:
+                continue
+            if " ".join(recent.content.split()) == content:
+                return True
+        return False
