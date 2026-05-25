@@ -347,11 +347,13 @@ function renderSendTasks() {
     <div class="send-item" data-send-id="${escapeHtml(task.send_task_id)}">
       <div class="send-top">
         <strong>${escapeHtml(task.content || "")}</strong>
-        <span class="badge ${escapeHtml(task.status)}">${escapeHtml(task.status)}</span>
+        <span class="send-status-actions">
+          <span class="badge ${escapeHtml(task.status)}">${escapeHtml(task.status)}</span>
+          ${task.status === "failed" ? `<button class="btn retry-btn" data-act="retry-send">重新发送</button>` : ""}
+        </span>
       </div>
       <div class="send-meta">${escapeHtml(task.created_at || "")}</div>
       ${task.error_message ? `<div class="send-content">错误：${escapeHtml(task.error_message)}</div>` : ""}
-      ${task.status === "failed" ? `<div class="send-actions"><button class="btn" data-act="retry-send">重新发送</button></div>` : ""}
     </div>
   `).join("");
   root.querySelectorAll('[data-act="retry-send"]').forEach((button) => {

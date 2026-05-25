@@ -73,13 +73,10 @@ class SendQueue:
         self.repo.update_send_task(task.send_task_id, SendTaskStatus.SENDING)
         try:
             with self._driver_lock:
-                self._restore_wechat_foreground()
                 self.verifier.verify_before_send(self.driver, identity)
-                self._restore_wechat_foreground()
                 result = self.driver.send_text(identity, task.content)
                 if not result.ok:
                     raise RuntimeError(result.message)
-                self._restore_wechat_foreground()
                 self.verifier.verify_after_send(self.driver, identity, task.content)
                 if self.on_sent:
                     self.on_sent(identity, task.content)
@@ -91,11 +88,3 @@ class SendQueue:
             print_send_event(identity.display_name, "failed", [task.content], error)
             if self.on_failed:
                 self.on_failed(task.conversation_id, error)
-
-    def _restore_wechat_foreground(self) -> None:
-        restorer = getattr(self.driver, "restore_and_activate", None)
-        if not callable(restorer):
-            return
-        status = restorer()
-        if not getattr(status, "ok", False):
-            raise RuntimeError(getattr(status, "message", "无法激活微信窗口"))
