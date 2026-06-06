@@ -166,13 +166,13 @@ analyze_intent
 → format_output
 ```
 
-第二阶段增加了可观测性和联系人策略：
+第二阶段增加了可观测性和节点参数：
 
 ```text
-load_contact_policy
-→ analyze_intent
-→ decide_reply
-→ plan_response
+load_node_settings
+→ retrieve_memory_context
+→ media_understanding
+→ semantic_reply_decision
 → draft_reply
 → auto_safety_check
 → format_output

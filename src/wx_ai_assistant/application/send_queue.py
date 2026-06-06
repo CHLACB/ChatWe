@@ -6,6 +6,7 @@ from typing import Callable, Optional
 
 from wx_ai_assistant.domain.enums import SendTaskStatus
 from wx_ai_assistant.domain.models import ConversationIdentity, SendTask
+from wx_ai_assistant.application.uia_worker import UiaCommandWorker
 from wx_ai_assistant.identity.verifier import ConversationVerifier
 from wx_ai_assistant.infrastructure.observability.console import print_send_event
 from wx_ai_assistant.ports.repository import Repository
@@ -27,6 +28,7 @@ class SendQueue:
         on_failed: Optional[Callable[[str, str], None]] = None,
         on_sent: Optional[Callable[[ConversationIdentity, str], None]] = None,
         driver_lock: threading.RLock | None = None,
+        uia_worker: UiaCommandWorker | None = None,
     ):
         self.repo = repo
         self.driver = driver
@@ -36,6 +38,7 @@ class SendQueue:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._driver_lock = driver_lock or threading.RLock()
+        self.uia_worker = uia_worker or UiaCommandWorker(driver, verifier, self._driver_lock)
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -72,14 +75,8 @@ class SendQueue:
 
         self.repo.update_send_task(task.send_task_id, SendTaskStatus.SENDING)
         try:
-            with self._driver_lock:
-                self.verifier.verify_before_send(self.driver, identity)
-                result = self.driver.send_text(identity, task.content)
-                if not result.ok:
-                    raise RuntimeError(result.message)
-                self.verifier.verify_after_send(self.driver, identity, task.content)
-                if self.on_sent:
-                    self.on_sent(identity, task.content)
+            self.uia_worker.driver = self.driver
+            self.uia_worker.send_to_target(identity, task.content, on_sent=self.on_sent)
             self.repo.update_send_task(task.send_task_id, SendTaskStatus.SUCCESS)
             print_send_event(identity.display_name, "success", [task.content])
         except Exception as exc:

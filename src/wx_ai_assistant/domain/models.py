@@ -47,6 +47,9 @@ class Message:
     message_type: MessageType
     content: str
     sender_name: Optional[str] = None
+    media_path: Optional[str] = None
+    media_mime_type: Optional[str] = None
+    media_description: Optional[str] = None
     source: MessageSource = MessageSource.REALTIME
     raw_id: Optional[str] = None
     created_at: datetime = field(default_factory=utc_now)

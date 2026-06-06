@@ -32,8 +32,8 @@ def list_targets(request: Request):
 @router.post("/targets/{conversation_id}/start")
 def start_target(conversation_id: str, request: Request):
     app_service = request.app.state.app_service
-    app_service.start_listen_target(conversation_id)
-    return ok({"conversation_id": conversation_id}, "已启动监听")
+    command = app_service.request_start_listen_target(conversation_id)
+    return ok(_command_or_result(command, {"conversation_id": conversation_id}), "启动监听命令已入队")
 
 
 @router.post("/targets/{conversation_id}/stop")
@@ -55,5 +55,12 @@ def delete_target(conversation_id: str, request: Request):
 @router.post("/poll-once")
 def poll_once(request: Request):
     app_service = request.app.state.app_service
-    app_service.poll_listeners_once()
-    return ok(message="已执行一次监听轮询")
+    command = app_service.request_poll_listeners_once()
+    return ok(_command_or_result(command, {}), "监听轮询命令已入队")
+
+
+def _command_or_result(value, fallback: dict):
+    try:
+        return asdict(value)
+    except TypeError:
+        return value if isinstance(value, dict) else fallback

@@ -26,6 +26,9 @@ class SenderType(StrEnum):
 
 class MessageType(StrEnum):
     TEXT = "text"
+    IMAGE = "image"
+    STICKER = "sticker"
+    VOICE = "voice"
     UNSUPPORTED = "unsupported"
 
 

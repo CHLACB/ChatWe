@@ -32,9 +32,10 @@ body {
 .shell {
   display: grid;
   grid-template-columns: 224px 1fr;
-  min-height: 100vh;
+  height: 100vh;
   padding: 14px;
   gap: 14px;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -45,6 +46,8 @@ body {
   background: rgba(33, 38, 48, 0.9);
   box-shadow: var(--shadow);
   backdrop-filter: blur(18px);
+  min-height: 0;
+  overflow: auto;
 }
 
 .brand {
@@ -129,6 +132,24 @@ h3 { font-size: 15px; }
   font-size: 13px;
   margin-bottom: 8px;
 }
+.side-add-target {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+.side-add-target input {
+  min-height: 32px;
+  border-color: rgba(255,255,255,.16);
+  background: rgba(255,255,255,.1);
+  color: #fff;
+}
+.side-add-target input::placeholder {
+  color: #b7c1ce;
+}
+.side-add-target .btn {
+  width: 100%;
+  height: 32px;
+}
 .side-link {
   border: 0;
   background: transparent;
@@ -187,6 +208,7 @@ h3 { font-size: 15px; }
   min-width: 0;
   height: calc(100vh - 28px);
   overflow: hidden;
+  min-height: 0;
 }
 
 .view { display: none; }
@@ -195,6 +217,23 @@ h3 { font-size: 15px; }
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+#view-desk.view.active {
+  overflow: hidden;
+  padding-right: 0;
+}
+
+#view-knowledge.view.active,
+#view-strategy.view.active,
+#view-settings.view.active {
+  display: block;
+  height: calc(100vh - 28px);
+  overflow-y: scroll;
+  overflow-x: hidden;
+  padding-right: 8px;
 }
 
 .page-head {
@@ -415,66 +454,328 @@ textarea {
 
 .settings-grid {
   display: grid;
-  grid-template-columns: 330px minmax(380px, 1fr) minmax(380px, 1fr);
-  grid-template-rows: 238px minmax(0, 1fr) 132px;
+  grid-template-columns: minmax(330px, 390px) minmax(360px, 1fr) minmax(360px, 1fr);
   grid-template-areas:
     "model prompts prompts"
-    "rhythm policies profiles"
-    "roadmap roadmap roadmap";
+    "rhythm prompts prompts"
+    "vision nodes nodes"
+    "speech nodes nodes";
   gap: 12px;
-  flex: 1;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: auto;
+  align-items: start;
+  padding-bottom: 18px;
 }
 .model-panel { grid-area: model; }
 .rhythm-panel { grid-area: rhythm; }
+.vision-panel { grid-area: vision; }
+.speech-panel { grid-area: speech; }
 .prompt-panel { grid-area: prompts; }
-.policy-panel { grid-area: policies; }
-.profile-panel { grid-area: profiles; }
-.roadmap-panel { grid-area: roadmap; }
+.node-settings-panel { grid-area: nodes; }
 
-.form-grid {
+.knowledge-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
+  grid-template-columns: minmax(320px, 390px) minmax(360px, .9fr) minmax(420px, 1.1fr);
+  grid-template-areas:
+    "upload docs detail"
+    "text docs detail";
+  gap: 12px;
+  align-items: start;
+  padding-bottom: 18px;
+  min-height: max-content;
+}
+.strategy-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 390px) minmax(520px, 1fr);
+  grid-template-areas: "contact analysis";
+  gap: 12px;
+  align-items: start;
+  padding-bottom: 18px;
+  min-height: max-content;
+}
+.knowledge-upload-panel { grid-area: upload; }
+.knowledge-text-panel { grid-area: text; }
+.knowledge-list-panel { grid-area: docs; min-height: 520px; }
+.knowledge-detail-panel { grid-area: detail; min-height: 520px; }
+.contact-knowledge-panel { grid-area: contact; }
+.strategy-analysis-panel {
+  grid-area: analysis;
+  min-height: 620px;
+}
+
+.tag-picks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+.tag-picks label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 8px;
+  background: rgba(255,255,255,.62);
+}
+.tag-picks input {
+  width: auto;
+}
+.inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.inline-check input {
+  width: auto;
+}
+.knowledge-doc-list,
+.knowledge-detail,
+.strategy-result {
+  display: grid;
+  gap: 8px;
   overflow: auto;
   min-height: 0;
 }
-.model-panel .form-grid {
-  grid-template-columns: repeat(2, minmax(150px, 1fr));
-}
-.prompt-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+.knowledge-doc-list,
+.knowledge-detail {
   flex: 1;
+}
+.knowledge-doc,
+.knowledge-chunk {
+  border: 1px solid rgba(130, 148, 171, 0.26);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(255,255,255,.66);
+}
+.knowledge-doc.active {
+  border-color: rgba(19, 104, 206, 0.55);
+  background: rgba(232, 241, 255, 0.82);
+}
+.knowledge-doc-top,
+.knowledge-detail-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+.knowledge-doc p,
+.knowledge-source,
+.knowledge-vector-stats {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 5px;
+  line-height: 1.45;
+}
+.knowledge-vector-stats {
+  border: 1px solid rgba(130, 148, 171, 0.22);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(248, 250, 252, 0.8);
+  margin-top: 0;
+}
+.contact-config-result.loading,
+.btn .inline-spinner,
+.inline-spinner {
+  display: inline-flex;
+  align-items: center;
+}
+.contact-config-result.loading {
+  gap: 8px;
+}
+.inline-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(19, 104, 206, 0.22);
+  border-top-color: rgba(19, 104, 206, 0.88);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  flex: 0 0 auto;
+}
+.btn .inline-spinner {
+  margin-right: 6px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.knowledge-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 10px;
+}
+.knowledge-actions .btn {
+  height: 30px;
+  padding: 0 8px;
+}
+.knowledge-preview {
+  max-height: 156px;
+  overflow: auto;
+  margin-top: 8px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  word-break: break-word;
+}
+.strategy-result {
+  margin-top: 12px;
+  max-height: 720px;
+}
+.strategy-result h4 {
+  margin: 8px 0 4px;
+}
+.strategy-result p {
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.settings-note {
+  color: #58616f;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: -2px 0 12px;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
   min-height: 0;
 }
-.prompt-grid label, .policy-panel, .profile-panel { min-height: 0; }
-.prompt-grid textarea {
+.setting-field {
+  gap: 7px;
+}
+.field-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  color: #303742;
+  font-weight: 600;
+}
+.field-title code {
+  color: #667085;
+  background: rgba(102, 112, 133, 0.08);
+  border: 1px solid rgba(102, 112, 133, 0.16);
+  border-radius: 7px;
+  padding: 2px 6px;
+  font-family: Consolas, "Segoe UI", monospace;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.setting-field small {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.setting-field input,
+.setting-field select {
+  min-height: 38px;
+}
+.setting-field input[readonly] {
+  color: #667085;
+  background: rgba(245, 247, 250, 0.86);
+}
+.prompt-grid,
+.prompt-two-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 12px;
   min-height: 0;
-  height: 100%;
+}
+.prompt-two-grid {
+  grid-template-columns: minmax(360px, .95fr) minmax(420px, 1.05fr);
+}
+.prompt-module-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(130, 148, 171, 0.2);
+}
+.editor-field textarea {
+  min-height: 170px;
+  background: rgba(255,255,255,.86);
+}
+.prompt-grid textarea {
+  min-height: 360px;
+}
+.prompt-two-grid > .editor-field textarea {
+  min-height: 520px;
+}
+.prompt-extension-editor {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+}
+.panel-head.compact {
+  margin-bottom: 0;
+  padding-bottom: 8px;
+}
+.prompt-extension-list {
+  display: grid;
+  gap: 8px;
+  max-height: 190px;
+  overflow: auto;
+}
+.prompt-extension-item {
+  display: grid;
+  grid-template-columns: 1fr 88px;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(130, 148, 171, 0.26);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(255,255,255,.66);
+  cursor: pointer;
+}
+.prompt-extension-item.active {
+  border-color: rgba(19, 104, 206, 0.55);
+  background: rgba(232, 241, 255, 0.82);
+}
+.prompt-extension-item input[type="number"] {
+  min-height: 32px;
+  padding: 6px 8px;
+}
+.prompt-extension-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 110px 130px;
+  gap: 10px;
+  align-items: end;
+}
+.extension-content-field {
+  grid-column: 1 / -1;
+}
+.extension-content-field textarea {
+  min-height: 220px;
+}
+.prompt-extension-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 .json-area {
   flex: 1;
-  min-height: 0;
+  min-height: 360px;
   font-family: Consolas, "Microsoft YaHei", monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  background: rgba(255,255,255,.86);
 }
-.roadmap-grid {
+.json-area.large {
+  min-height: 420px;
+}
+.contact-config-actions {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
-.roadmap-grid div {
-  border: 1px solid rgba(130, 148, 171, 0.24);
-  border-radius: 10px;
-  padding: 11px;
-  background: rgba(255,255,255,.52);
-}
-.roadmap-grid span {
-  display: block;
-  margin-top: 5px;
-  color: var(--muted);
-  line-height: 1.45;
+.contact-config-result {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  word-break: break-word;
 }
 
 .error-banner {
@@ -566,15 +867,17 @@ textarea {
     padding-top: 0;
   }
   .side-target-list { max-height: 180px; }
-  .layout, .settings-grid, .toolbar {
+  .layout, .settings-grid, .knowledge-grid, .strategy-grid, .toolbar {
     display: grid;
     grid-template-columns: 1fr;
     grid-template-areas: none;
     grid-template-rows: auto;
   }
   .message-panel, .decision-panel, .send-panel,
-  .model-panel, .rhythm-panel, .prompt-panel, .policy-panel, .profile-panel, .roadmap-panel {
+  .model-panel, .rhythm-panel, .vision-panel, .speech-panel, .prompt-panel, .node-settings-panel,
+  .knowledge-upload-panel, .knowledge-text-panel, .knowledge-list-panel, .knowledge-detail-panel, .contact-knowledge-panel, .strategy-analysis-panel {
     grid-area: auto;
   }
-  .prompt-grid, .roadmap-grid { grid-template-columns: 1fr; }
+  .prompt-grid, .prompt-two-grid, .prompt-module-grid, .prompt-extension-form { grid-template-columns: 1fr; }
+  .extension-content-field, .prompt-extension-actions { grid-column: auto; }
 }

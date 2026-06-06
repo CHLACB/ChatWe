@@ -43,7 +43,11 @@ def get_task(send_task_id: str, request: Request):
 def retry_task(send_task_id: str, request: Request):
     app_service = request.app.state.app_service
     try:
-        task = app_service.retry_send_task(send_task_id)
+        command = app_service.request_retry_send_task(send_task_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return ok(asdict(task), "发送任务已重新加入队列")
+    try:
+        data = asdict(command)
+    except TypeError:
+        data = command
+    return ok(data, "重试发送命令已入队")

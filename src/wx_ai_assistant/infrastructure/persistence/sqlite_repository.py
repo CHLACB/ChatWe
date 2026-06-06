@@ -61,6 +61,9 @@ class SqliteRepository:
                 sender_name TEXT,
                 message_type TEXT NOT NULL,
                 content TEXT NOT NULL,
+                media_path TEXT,
+                media_mime_type TEXT,
+                media_description TEXT,
                 source TEXT NOT NULL,
                 raw_id TEXT,
                 fingerprint TEXT,
@@ -108,6 +111,7 @@ class SqliteRepository:
                 created_at TEXT NOT NULL
             );
             """)
+            self._ensure_message_media_columns()
             self._ensure_ai_decision_log_columns()
 
     def upsert_conversation(self, identity: ConversationIdentity) -> None:
@@ -208,8 +212,13 @@ class SqliteRepository:
             try:
                 self._conn.execute(
                     """
-                    INSERT INTO messages(message_id, conversation_id, sender_type, sender_name, message_type, content, source, raw_id, fingerprint, created_at, received_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO messages(
+                        message_id, conversation_id, sender_type, sender_name,
+                        message_type, content, media_path, media_mime_type,
+                        media_description, source, raw_id, fingerprint,
+                        created_at, received_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         message.message_id,
@@ -218,6 +227,9 @@ class SqliteRepository:
                         message.sender_name,
                         message.message_type.value,
                         message.content,
+                        message.media_path,
+                        message.media_mime_type,
+                        message.media_description,
                         message.source.value,
                         message.raw_id,
                         message.fingerprint,
@@ -403,6 +415,16 @@ class SqliteRepository:
             rows = self._conn.execute(query, tuple(params)).fetchall()
         return [self._row_to_ai_decision_log(row) for row in rows]
 
+    def _ensure_message_media_columns(self) -> None:
+        rows = self._conn.execute("PRAGMA table_info(messages)").fetchall()
+        columns = {row["name"] for row in rows}
+        if "media_path" not in columns:
+            self._conn.execute("ALTER TABLE messages ADD COLUMN media_path TEXT")
+        if "media_mime_type" not in columns:
+            self._conn.execute("ALTER TABLE messages ADD COLUMN media_mime_type TEXT")
+        if "media_description" not in columns:
+            self._conn.execute("ALTER TABLE messages ADD COLUMN media_description TEXT")
+
     def _ensure_ai_decision_log_columns(self) -> None:
         rows = self._conn.execute("PRAGMA table_info(ai_decision_logs)").fetchall()
         columns = {row["name"] for row in rows}
@@ -418,6 +440,7 @@ class SqliteRepository:
             except Exception:
                 return default
 
+        raw_state_json = decode_json("raw_state_json", decode_json("raw_state", {}))
         return {
             "run_id": row["run_id"],
             "conversation_id": row["conversation_id"],
@@ -439,7 +462,12 @@ class SqliteRepository:
             "final_messages": decode_json("final_messages", []),
             "done": bool(row["done"]),
             "node_errors": decode_json("node_errors", []),
-            "raw_state_json": decode_json("raw_state_json", decode_json("raw_state", {})),
+            "risk_flags": raw_state_json.get("risk_flags", []) if isinstance(raw_state_json, dict) else [],
+            "requires_safety_model": bool(raw_state_json.get("requires_safety_model", False)) if isinstance(raw_state_json, dict) else False,
+            "media_observations": raw_state_json.get("media_observations", []) if isinstance(raw_state_json, dict) else [],
+            "retrieved_memories": raw_state_json.get("retrieved_memories", []) if isinstance(raw_state_json, dict) else [],
+            "node_settings": raw_state_json.get("node_settings", {}) if isinstance(raw_state_json, dict) else {},
+            "raw_state_json": raw_state_json,
             "created_at": row["created_at"],
         }
 
@@ -477,6 +505,9 @@ class SqliteRepository:
             sender_name=row["sender_name"],
             message_type=MessageType(row["message_type"]),
             content=row["content"],
+            media_path=row["media_path"] if "media_path" in row.keys() else None,
+            media_mime_type=row["media_mime_type"] if "media_mime_type" in row.keys() else None,
+            media_description=row["media_description"] if "media_description" in row.keys() else None,
             source=MessageSource(row["source"]),
             raw_id=row["raw_id"],
             fingerprint=row["fingerprint"],

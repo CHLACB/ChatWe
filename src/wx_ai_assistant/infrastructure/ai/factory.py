@@ -25,8 +25,9 @@ def build_ai_gateway(settings: Settings, force_mode: str | None = None, reposito
                 extra_body=settings.ai_extra_body,
                 proactive_mode=settings.ai_proactive_mode,
                 max_messages_per_turn=settings.ai_max_messages_per_turn,
-                contact_policies_path=str(settings.contact_policies_path),
-                conversation_profiles_path=str(settings.conversation_profiles_path),
+                node_settings_path=str(settings.langgraph_nodes_path),
+                system_prompt_path=str(settings.ai_core_prompt_path),
+                prompt_extensions_path=str(settings.ai_extensions_path),
             ),
             repository=repository,
         )
@@ -45,6 +46,7 @@ def build_ai_gateway(settings: Settings, force_mode: str | None = None, reposito
                     settings.ai_style_path,
                     settings.ai_system_prompt,
                     settings.ai_proactive_mode,
+                    settings.ai_extensions_path,
                 ),
                 extra_body=settings.ai_extra_body,
             )

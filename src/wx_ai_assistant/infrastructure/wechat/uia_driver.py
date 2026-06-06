@@ -50,6 +50,8 @@ class UiaWechatDriver(WechatDriver):
         self._ingest_identity: ConversationIdentity | None = None
         self._ingest_identity_verified_at = 0.0
         self._ingest_identity_ttl_seconds = 12.0
+        self._conversation_item_signatures: dict[str, str] = {}
+        self.media_dir = Path("data/media/uia_visible")
         self.last_send_method: str | None = None
 
     def initialize(self) -> DriverStatus:
@@ -88,7 +90,10 @@ class UiaWechatDriver(WechatDriver):
                 if not strategy.get("verified"):
                     raise DriverNotConfiguredError(self._missing_control_message("switch_conversation", "搜索框、搜索结果、聊天标题"))
 
-                self._activate_conversation_without_mouse(identity)
+                try:
+                    self._activate_conversation_from_visible_list(identity)
+                except Exception:
+                    self._activate_conversation_without_mouse(identity)
                 current = self.get_current_conversation()
                 if current is None:
                     raise DriverNotConfiguredError("切换会话后无法读取当前聊天标题，请先运行 switch_filehelper_test.py 查看 before/after 和候选。")
@@ -120,7 +125,13 @@ class UiaWechatDriver(WechatDriver):
             active: list[ConversationIdentity] = []
             for target in targets:
                 item = self._find_conversation_list_item(items, target)
-                if item is not None and self._conversation_item_has_unread_signal(item):
+                if item is None:
+                    continue
+                if self._conversation_item_has_unread_signal(item):
+                    self._remember_conversation_item_signature(target, item)
+                    active.append(target)
+                    continue
+                if self._conversation_item_changed(target, item):
                     active.append(target)
             return active
 
@@ -165,22 +176,41 @@ class UiaWechatDriver(WechatDriver):
     def read_visible_text_messages(self, identity: ConversationIdentity) -> list[Message]:
         with self._lock:
             self._ensure_ready()
+            current = self.get_current_conversation()
+            if not self._identity_title_matches(identity, current):
+                actual = current.display_name if current else "unknown"
+                raise DriverNotConfiguredError(
+                    f"读取消息前会话验证失败: expected={identity.display_name}, actual={actual}。"
+                    "已停止读取，避免把当前窗口消息入库到错误联系人。"
+                )
             message_list = self._locate_required("message_list")
             self._mark_identity_verified_for_ingest(identity)
             messages: list[Message] = []
             for index, item in enumerate(self._message_items(message_list)):
-                content = sanitize_text(str(getattr(item, "Name", "") or "")).strip()
+                content = self._visible_message_content(item)
                 if not content:
                     continue
+                message_type = self._visible_message_type(content)
                 sender_type = self._classify_sender(item, identity)
-                fingerprint = self._visible_message_fingerprint(identity, item, sender_type, content, index)
+                media_control = self._media_capture_control(item, sender_type, message_type)
+                fingerprint = self._visible_message_fingerprint(
+                    identity,
+                    media_control or item,
+                    sender_type,
+                    content,
+                    index,
+                    message_type=message_type,
+                )
+                media_path = self._capture_visible_media_item(identity, item, sender_type, message_type, fingerprint)
                 messages.append(
                     Message(
                         conversation_id=identity.conversation_id,
                         sender_type=sender_type,
                         sender_name=self._sender_name_for_visible_message(identity, sender_type),
-                        message_type=MessageType.TEXT,
+                        message_type=message_type,
                         content=content,
+                        media_path=media_path,
+                        media_mime_type="image/png" if media_path else None,
                         raw_id=fingerprint,
                         fingerprint=fingerprint,
                     )
@@ -315,6 +345,8 @@ class UiaWechatDriver(WechatDriver):
             raise DriverNotConfiguredError(f"{key} 不能只配置 index。请先采集稳定字段，再把 index 作为辅助条件。")
 
         candidates = [c for c in self._iter_controls(self._window) if self._matches(c, locator)]
+        if not candidates and key == "search_box":
+            candidates = self._search_box_unique_region_fallback(locator)
         index = locator.get("index")
         if index is not None:
             try:
@@ -326,6 +358,24 @@ class UiaWechatDriver(WechatDriver):
         if not candidates:
             raise DriverNotConfiguredError(f"未找到 {key} 控件。请 dump {key} 附近控件并更新 locator。")
         raise DriverNotConfiguredError(f"{key} 匹配到 {len(candidates)} 个候选。请补充 automation_id/class_name/name_contains 或已验证 index。")
+
+    def _search_box_unique_region_fallback(self, locator: dict[str, Any]) -> list[Any]:
+        """Wechat 3.9.12.56 fallback for focused/search-text states.
+
+        Verified source:
+          - docs/wechat_filehelper_chat_dump.md: search box is the only
+            EditControl in conversation_panel_header.
+        Fallback behavior:
+          - Only returns a control when the same type+region selector is unique.
+          - If ambiguous, returns all candidates so _locate_required raises a
+            structured "multiple candidates" error instead of guessing an index.
+        """
+        fallback = dict(locator)
+        fallback.pop("name_contains", None)
+        fallback.pop("name_not_empty", None)
+        fallback["control_type"] = "EditControl"
+        fallback["region"] = "conversation_panel_header"
+        return [c for c in self._iter_controls(self._window) if self._matches(c, fallback)]
 
     def _locate_optional(self, key: str):
         try:
@@ -421,6 +471,121 @@ class UiaWechatDriver(WechatDriver):
         except Exception:
             return []
 
+    def _visible_message_content(self, item: Any) -> str:
+        content = sanitize_text(str(getattr(item, "Name", "") or "")).strip()
+        if content:
+            return content
+        return self._media_marker_from_descendants(item)
+
+    def _media_marker_from_descendants(self, item: Any) -> str:
+        markers = ("[图片]", "图片", "[动画表情]", "动画表情", "[表情]", "表情", "[语音]", "语音", "语音消息")
+        for child in self._iter_controls(item, max_depth=4):
+            try:
+                name = sanitize_text(str(getattr(child, "Name", "") or "")).strip()
+            except Exception:
+                continue
+            if not name:
+                continue
+            if any(marker in name for marker in markers):
+                return name
+        return ""
+
+    def _visible_message_type(self, content: str) -> MessageType:
+        value = content.strip()
+        if value in {"[动画表情]", "动画表情", "[表情]", "表情", "表情包"} or value.startswith("[动画表情]"):
+            return MessageType.STICKER
+        if value in {"[图片]", "图片"} or value.startswith("[图片]"):
+            return MessageType.IMAGE
+        if value in {"[语音]", "语音", "语音消息"} or value.startswith("[语音]") or value.startswith("语音转文字"):
+            return MessageType.VOICE
+        return MessageType.TEXT
+
+    def _capture_visible_media_item(
+        self,
+        identity: ConversationIdentity,
+        item: Any,
+        sender_type: SenderType,
+        message_type: MessageType,
+        fingerprint: str,
+    ) -> str | None:
+        if message_type not in {MessageType.IMAGE, MessageType.STICKER}:
+            return None
+        capture_control = self._media_capture_control(item, sender_type, message_type) or item
+        if not hasattr(capture_control, "CaptureToImage"):
+            return None
+        rect = self._rect_tuple(capture_control)
+        if rect is None:
+            return None
+        left, top, right, bottom = rect
+        if right <= left or bottom <= top:
+            return None
+        try:
+            self.media_dir.mkdir(parents=True, exist_ok=True)
+            name = self._safe_media_filename(identity, message_type, fingerprint)
+            path = self.media_dir / name
+            if not path.exists() or path.stat().st_size <= 0:
+                capture_control.CaptureToImage(str(path))
+            if path.exists() and path.stat().st_size > 0:
+                return str(path)
+        except Exception:
+            return None
+        return None
+
+    def _media_capture_control(self, item: Any, sender_type: SenderType, message_type: MessageType):
+        """Find the media bubble/picture control, avoiding avatar capture.
+
+        WeChat 3.9.12.56 visible media items expose an avatar ButtonControl plus
+        one or more adjacent PaneControls for the image/sticker bubble. Capturing
+        the whole ListItem includes the avatar, so prefer the pane next to the
+        avatar and fall back to the item only when the structure is unavailable.
+        """
+        if message_type not in {MessageType.IMAGE, MessageType.STICKER}:
+            return None
+        item_rect = self._rect_tuple(item)
+        if item_rect is None:
+            return None
+        item_left, _, item_right, _ = item_rect
+        item_width = max(1, item_right - item_left)
+        try:
+            children = list(item.GetChildren())
+        except Exception:
+            children = []
+
+        avatars: list[tuple[int, int, int, int]] = []
+        panes: list[tuple[int, Any, tuple[int, int, int, int]]] = []
+        for child in children:
+            rect = self._rect_tuple(child)
+            if rect is None:
+                continue
+            left, top, right, bottom = rect
+            width = right - left
+            height = bottom - top
+            if width <= 0 or height <= 0:
+                continue
+            control_type = str(getattr(child, "ControlTypeName", "") or "")
+            if control_type == "ButtonControl" and 35 <= width <= 90 and 35 <= height <= 90:
+                avatars.append(rect)
+                continue
+            if control_type == "PaneControl" and 24 <= width < item_width * 0.88 and height >= 24:
+                panes.append((width * height, child, rect))
+        if not panes:
+            return None
+        if avatars:
+            avatar_left, _, avatar_right, _ = avatars[0]
+            if sender_type == SenderType.OTHER:
+                near = [pane for pane in panes if avatar_right - 4 <= pane[2][0] <= avatar_right + 45]
+            elif sender_type == SenderType.SELF:
+                near = [pane for pane in panes if avatar_left - 45 <= pane[2][2] <= avatar_left + 4]
+            else:
+                near = []
+            if near:
+                return sorted(near, key=lambda pane: pane[0], reverse=True)[0][1]
+        return sorted(panes, key=lambda pane: pane[0], reverse=True)[0][1]
+
+    def _safe_media_filename(self, identity: ConversationIdentity, message_type: MessageType, fingerprint: str) -> str:
+        conv = re.sub(r"[^0-9A-Za-z_.-]+", "_", identity.conversation_id).strip("_") or "conversation"
+        return f"{conv}_{message_type.value}_{fingerprint[:16]}.png"
+
     def _conversation_list_items(self) -> list[Any]:
         conversation_list = self._locate_required("conversation_list")
         try:
@@ -438,6 +603,8 @@ class UiaWechatDriver(WechatDriver):
 
     def _conversation_item_has_unread_signal(self, item: Any) -> bool:
         locator = (self._locators or {}).get("conversation_item_unread") or {}
+        if not locator.get("verified"):
+            return False
         if self._matches_configured_unread_signal(item, locator):
             return True
         return self._has_small_red_dot_candidate(item, locator)
@@ -488,6 +655,37 @@ class UiaWechatDriver(WechatDriver):
             if item_left <= center_x <= item_right and item_top <= center_y <= item_top + 35:
                 return True
         return False
+
+    def _conversation_item_changed(self, identity: ConversationIdentity, item: Any) -> bool:
+        """Detect left-list item changes without focusing or switching chats.
+
+        wxauto detects new messages inside each ChatBox by comparing UIA message
+        item ids/hashes. In the single-main-window model we cannot inspect an
+        off-screen chat's message ListItems without switching, so the passive
+        equivalent is to snapshot the conversation-list item itself: unread
+        marker, preview text, timestamp and visible descendants. A changed
+        signature means "this target may have new content" and lets the listener
+        enqueue a verified read task.
+        """
+        signature = self._conversation_item_signature(item)
+        previous = self._conversation_item_signatures.get(identity.conversation_id)
+        self._conversation_item_signatures[identity.conversation_id] = signature
+        return previous is not None and previous != signature
+
+    def _remember_conversation_item_signature(self, identity: ConversationIdentity, item: Any) -> None:
+        self._conversation_item_signatures[identity.conversation_id] = self._conversation_item_signature(item)
+
+    def _conversation_item_signature(self, item: Any) -> str:
+        parts: list[str] = []
+        for control in self._iter_controls(item, max_depth=4):
+            name = sanitize_text(str(getattr(control, "Name", "") or "")).strip()
+            control_type = str(getattr(control, "ControlTypeName", "") or "")
+            class_name = str(getattr(control, "ClassName", "") or "")
+            child_count = self._children_count(control)
+            if name or control_type or class_name:
+                parts.append("|".join([control_type, class_name, name, str(child_count)]))
+        raw = "\n".join(parts)
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     def _control_size_in_range(self, control: Any, size_range: dict[str, Any]) -> bool:
         rect = self._rect_tuple(control)
@@ -561,9 +759,18 @@ class UiaWechatDriver(WechatDriver):
         sender_type: SenderType,
         content: str,
         index: int,
+        message_type: MessageType = MessageType.TEXT,
     ) -> str:
         rect = self._rect_tuple(item)
-        rect_text = ",".join(str(part) for part in rect) if rect else "no-rect"
+        if rect and message_type in {MessageType.IMAGE, MessageType.STICKER}:
+            left, _, right, bottom = rect
+            width = right - left
+            height = bottom - rect[1]
+            rect_text = f"media-shape:{width}x{height}:x{left}"
+            index_text = "media"
+        else:
+            rect_text = ",".join(str(part) for part in rect) if rect else "no-rect"
+            index_text = str(index)
         raw = "|".join(
             [
                 "uia-visible-v1",
@@ -571,7 +778,8 @@ class UiaWechatDriver(WechatDriver):
                 identity.conversation_id,
                 sanitize_text(content).strip(),
                 rect_text,
-                str(index),
+                index_text,
+                message_type.value,
             ]
         )
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -642,6 +850,14 @@ class UiaWechatDriver(WechatDriver):
                 f"focused_rect={getattr(last_focused, 'BoundingRectangle', '')!r}"
             )
         return None
+
+    def _activate_conversation_from_visible_list(self, identity: ConversationIdentity) -> None:
+        items = self._conversation_list_items()
+        item = self._find_conversation_list_item(items, identity)
+        if item is None:
+            raise DriverNotConfiguredError("目标会话不在当前左侧可见会话列表中")
+        self._activate_list_item_no_mouse(item)
+        time.sleep(0.35)
 
     def _activate_conversation_from_list(self, identity: ConversationIdentity) -> None:
         names = {identity.display_name, identity.remark_name} - {None, ""}

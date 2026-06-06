@@ -6,16 +6,27 @@ from datetime import datetime
 from wx_ai_assistant.domain.enums import MessageSource, MessageType, SenderType
 from wx_ai_assistant.domain.models import ConversationIdentity, Message
 from wx_ai_assistant.identity.verifier import ConversationVerifier
+from wx_ai_assistant.application.media_recognition import MediaRecognitionService
 from wx_ai_assistant.ports.repository import Repository
 from wx_ai_assistant.ports.wechat_driver import WechatDriver
 from wx_ai_assistant.core.text_sanitize import sanitize_text
 
 
+TRIGGERABLE_MESSAGE_TYPES = {MessageType.TEXT, MessageType.IMAGE, MessageType.STICKER, MessageType.VOICE}
+
+
 class MessageIngestionService:
-    def __init__(self, repo: Repository, driver: WechatDriver, verifier: ConversationVerifier):
+    def __init__(
+        self,
+        repo: Repository,
+        driver: WechatDriver,
+        verifier: ConversationVerifier,
+        media_recognition: MediaRecognitionService | None = None,
+    ):
         self.repo = repo
         self.driver = driver
         self.verifier = verifier
+        self.media_recognition = media_recognition or MediaRecognitionService()
 
     def ingest_realtime_messages(self, identity: ConversationIdentity, messages: list[Message]) -> list[Message]:
         """Store new messages and return messages that should trigger AI."""
@@ -26,10 +37,13 @@ class MessageIngestionService:
         trigger_messages: list[Message] = []
         for msg in messages:
             msg.conversation_id = identity.conversation_id
+            msg = self.media_recognition.recognize(msg)
             msg.content = sanitize_text(msg.content)
             if msg.sender_name:
                 msg.sender_name = sanitize_text(msg.sender_name)
             if self._is_duplicate_visible_self(identity, msg):
+                continue
+            if self._is_duplicate_visible_other_media(identity, msg):
                 continue
             if not msg.fingerprint:
                 msg.fingerprint = self._fingerprint(msg)
@@ -38,7 +52,8 @@ class MessageIngestionService:
                 inserted
                 and id(msg) in triggerable_ids
                 and msg.sender_type == SenderType.OTHER
-                and msg.message_type == MessageType.TEXT
+                and msg.message_type in TRIGGERABLE_MESSAGE_TYPES
+                and msg.content.strip()
             ):
                 trigger_messages.append(msg)
         return trigger_messages
@@ -51,6 +66,7 @@ class MessageIngestionService:
         inserted_count = 0
         for msg in messages:
             msg.conversation_id = identity.conversation_id
+            msg = self.media_recognition.recognize(msg)
             msg.content = sanitize_text(msg.content)
             if msg.sender_name:
                 msg.sender_name = sanitize_text(msg.sender_name)
@@ -110,13 +126,26 @@ class MessageIngestionService:
         return messages[last_self_index + 1 :]
 
     def _is_duplicate_visible_self(self, identity: ConversationIdentity, msg: Message) -> bool:
-        if msg.sender_type != SenderType.SELF or msg.message_type != MessageType.TEXT:
+        if msg.sender_type != SenderType.SELF or msg.message_type not in TRIGGERABLE_MESSAGE_TYPES:
             return False
         content = " ".join(msg.content.split())
         if not content:
             return False
         for recent in reversed(self.repo.list_recent_messages(identity.conversation_id, limit=20)):
-            if recent.sender_type != SenderType.SELF or recent.message_type != MessageType.TEXT:
+            if recent.sender_type != SenderType.SELF or recent.message_type not in TRIGGERABLE_MESSAGE_TYPES:
+                continue
+            if " ".join(recent.content.split()) == content:
+                return True
+        return False
+
+    def _is_duplicate_visible_other_media(self, identity: ConversationIdentity, msg: Message) -> bool:
+        if msg.sender_type != SenderType.OTHER or msg.message_type not in {MessageType.IMAGE, MessageType.STICKER}:
+            return False
+        content = " ".join(msg.content.split())
+        if not content:
+            return False
+        for recent in reversed(self.repo.list_recent_messages(identity.conversation_id, limit=30)):
+            if recent.sender_type != SenderType.OTHER or recent.message_type != msg.message_type:
                 continue
             if " ".join(recent.content.split()) == content:
                 return True

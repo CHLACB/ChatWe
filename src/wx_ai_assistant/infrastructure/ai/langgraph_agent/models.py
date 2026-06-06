@@ -23,8 +23,21 @@ class LangGraphAiConfig:
     extra_body: str = ""
     proactive_mode: str = "off"
     max_messages_per_turn: int = 2
-    contact_policies_path: str = "./config/contact_policies.local.json"
-    conversation_profiles_path: str = "./config/conversation_profiles.local.json"
+    node_settings_path: str = "./config/langgraph_nodes.local.json"
+    system_prompt_path: str = "./config/prompts/system.core.md"
+    prompt_extensions_path: str = "./config/prompts/extensions.local.json"
+
+
+class ProactiveStrategy(BaseModel):
+    enabled: bool = False
+    mode: str = "off"
+    level: str = "controlled"
+    cooldown_minutes: int = 240
+    max_messages_per_day: int = 1
+    allowed_windows: list[str] = Field(default_factory=lambda: ["10:00-22:30"])
+    quiet_hours: list[str] = Field(default_factory=lambda: ["23:30-09:00"])
+    requires_recent_context: bool = True
+    topic_policy: str = "关闭主动触达。没有对方新消息时不主动开新话题。"
 
 
 class ContactPolicy(BaseModel):
@@ -33,17 +46,24 @@ class ContactPolicy(BaseModel):
     max_messages_per_turn: int = 2
     tone: str = "natural_short"
     allow_questions: bool = True
+    community_context: dict[str, Any] = Field(default_factory=dict)
+    relationship_strategy: dict[str, Any] = Field(default_factory=dict)
+    proactive_strategy: ProactiveStrategy = Field(default_factory=ProactiveStrategy)
     notes: str = ""
 
 
 class ConversationProfile(BaseModel):
     relationship: str = "普通微信联系人"
+    background: str = ""
     communication_style: str = "自然、简短、不过度热情"
     initiative_level: str = "low"
     max_messages: int = 1
     max_chars_per_message: int = 60
     allow_follow_up_question: bool = True
     allow_emotional_support: bool = True
+    community_awareness: dict[str, Any] = Field(default_factory=dict)
+    known_preferences: list[str] = Field(default_factory=list)
+    manual_memories: list[str] = Field(default_factory=list)
     avoid_topics: list[str] = Field(default_factory=list)
     hard_rules: list[str] = Field(
         default_factory=lambda: [
@@ -56,20 +76,118 @@ class ConversationProfile(BaseModel):
     )
 
 
-class IntentAnalysisOutput(BaseModel):
+class MemoryRetrievalSettings(BaseModel):
+    enabled: bool = True
+    top_k: int = 3
+    max_chars: int = 240
+
+
+class SemanticNodeSettings(BaseModel):
+    recent_message_limit: int = 8
+    context_summary_max_chars: int = 500
+    confidence_threshold: float = 0.55
+    detect_community_context: bool = False
+    community_signal_policy: str = ""
+
+
+class ReplyStrategyNodeSettings(BaseModel):
+    default_max_messages: int = 1
+    default_max_chars_per_message: int = 60
+    allow_follow_up_question: bool = True
+    question_policy: str = "可轻问一句"
+    initiative_level: str = "low"
+    ending_style: str = "停住等对方"
+    community_reply_policy: str = ""
+
+
+class StyleControlSettings(BaseModel):
+    persona: str = "female_flirty_reserved"
+    variability: str = "medium_high"
+    push_pull_enabled: bool = True
+    soft_teasing_enabled: bool = True
+    soft_suppression_enabled: bool = True
+    clingy_level: str = "low"
+    sweetness_level: str = "medium"
+    logic_strictness: str = "low_medium"
+    emotional_variation: str = "medium_high"
+    avoid_fixed_pattern: bool = True
+    frame_control: str = "medium"
+    community_tone: str = ""
+
+
+class ProactiveNodeSettings(BaseModel):
+    enabled: bool = True
+    default_mode: str = "off"
+    manual_trigger_only: bool = True
+    min_recent_messages: int = 1
+    cooldown_minutes: int = 240
+    max_messages_per_day: int = 1
+    risk_stop_keywords: list[str] = Field(
+        default_factory=lambda: ["钱", "转账", "借钱", "密码", "验证码", "身份证", "银行卡", "隐私照", "见面", "酒店", "开房"]
+    )
+    decision_policy: str = "只有全局主动模式开启时才允许主动；每次只生成 0 或 1 条，必须短、轻、可退。"
+
+
+class MediaNodeSettings(BaseModel):
+    enabled: bool = True
+    max_observations: int = 3
+
+
+class RiskNodeSettings(BaseModel):
+    rule_first: bool = True
+    model_check_only_when_risky: bool = True
+    risk_keywords: list[str] = Field(
+        default_factory=lambda: [
+            "钱",
+            "转账",
+            "借钱",
+            "付款",
+            "收款",
+            "红包",
+            "银行卡",
+            "账号",
+            "密码",
+            "验证码",
+            "身份证",
+            "隐私",
+            "手机号",
+            "银行卡号",
+        ]
+    )
+    community_risk_policy: str = ""
+
+
+class LangGraphNodeSettings(BaseModel):
+    memory_retrieval: MemoryRetrievalSettings = Field(default_factory=MemoryRetrievalSettings)
+    semantic: SemanticNodeSettings = Field(default_factory=SemanticNodeSettings)
+    reply_strategy: ReplyStrategyNodeSettings = Field(default_factory=ReplyStrategyNodeSettings)
+    style_control: StyleControlSettings = Field(default_factory=StyleControlSettings)
+    proactive: ProactiveNodeSettings = Field(default_factory=ProactiveNodeSettings)
+    media_understanding: MediaNodeSettings = Field(default_factory=MediaNodeSettings)
+    risk: RiskNodeSettings = Field(default_factory=RiskNodeSettings)
+
+
+class SemanticReplyDecisionOutput(BaseModel):
     intent: str = ""
     emotion: str = ""
     user_need: str = ""
     relationship_signal: str = ""
-
-
-class ReplyDecisionOutput(BaseModel):
     should_reply: bool = False
     no_reply_reason: str = ""
-
-
-class ResponsePlanOutput(BaseModel):
     reply_strategy: str = ""
+    risk_flags: list[str] = Field(default_factory=list)
+
+
+class ProactiveSendDecisionOutput(BaseModel):
+    should_send: bool = False
+    no_send_reason: str = ""
+    suggested_message: str = ""
+    strategy: str = ""
+    risk_flags: list[str] = Field(default_factory=list)
+
+
+class MediaUnderstandingOutput(BaseModel):
+    media_observations: list[str] = Field(default_factory=list)
 
 
 class DraftReplyOutput(BaseModel):

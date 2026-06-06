@@ -8,83 +8,149 @@ from wx_ai_assistant.core.text_sanitize import sanitize_text
 from wx_ai_assistant.infrastructure.ai.langgraph_agent.models import JsonChatClient
 from wx_ai_assistant.infrastructure.ai.langgraph_agent.models import (
     DraftReplyOutput,
-    IntentAnalysisOutput,
-    ReplyDecisionOutput,
-    ResponsePlanOutput,
+    MediaUnderstandingOutput,
+    ProactiveSendDecisionOutput,
     SafetyCheckOutput,
+    SemanticReplyDecisionOutput,
 )
 from wx_ai_assistant.infrastructure.ai.langgraph_agent.prompts import (
-    ANALYZE_INTENT_PROMPT,
-    DECIDE_REPLY_PROMPT,
     DRAFT_REPLY_PROMPT,
-    PLAN_RESPONSE_PROMPT,
+    MEDIA_UNDERSTANDING_PROMPT,
+    PROACTIVE_SEND_DECISION_PROMPT,
     SAFETY_CHECK_PROMPT,
+    SEMANTIC_REPLY_DECISION_PROMPT,
 )
 from wx_ai_assistant.infrastructure.ai.langgraph_agent.state import WechatReplyState
 
 
 IDENTITY_WORDS = ("AI", "ai", "机器人", "自动回复", "助手", "程序", "代替", "替他", "替你")
 SERVICE_TONE_WORDS = ("很高兴为您服务", "请问还有什么", "亲", "客服", "为您", "帮助您")
+RISK_KEYWORDS = (
+    "钱",
+    "转账",
+    "借钱",
+    "付款",
+    "收款",
+    "红包",
+    "银行卡",
+    "账号",
+    "密码",
+    "验证码",
+    "身份证",
+    "隐私",
+    "手机号",
+    "银行卡号",
+    "地址",
+    "照片",
+    "私密照",
+    "见面",
+    "酒店",
+    "开房",
+)
+MEDIA_MARKERS = ("[图片", "[表情", "[语音", "[文件", "图片识别", "表情包识别", "语音转写", "文件")
 
 
 class WechatReplyNodes:
-    def __init__(self, client: JsonChatClient, policy_loader=None, profile_loader=None):
+    def __init__(self, client: JsonChatClient, node_settings_loader=None):
         self.client = client
-        self.policy_loader = policy_loader
-        self.profile_loader = profile_loader
+        self.node_settings_loader = node_settings_loader
 
-    def load_contact_policy(self, state: WechatReplyState) -> dict[str, Any]:
-        if self.policy_loader is None:
-            return {"contact_policy": {}}
-        policy = self.policy_loader.load_for_identity(state.get("_identity"), str(state.get("display_name", "")))
-        return {
-            "contact_policy": policy.model_dump(),
-            "proactive_mode": policy.proactive_mode,
-            "max_messages_per_turn": policy.max_messages_per_turn,
-        }
+    def load_node_settings(self, state: WechatReplyState) -> dict[str, Any]:
+        if self.node_settings_loader is None:
+            return {"node_settings": {}}
+        return {"node_settings": self.node_settings_loader.load().model_dump()}
 
-    def load_conversation_profile(self, state: WechatReplyState) -> dict[str, Any]:
-        if self.profile_loader is None:
-            return {"conversation_profile": {}}
-        profile = self.profile_loader.load_for_identity(state.get("_identity"), str(state.get("display_name", "")))
-        return {"conversation_profile": profile.model_dump()}
+    def retrieve_memory_context(self, state: WechatReplyState) -> dict[str, Any]:
+        settings = self._node_settings(state).get("memory_retrieval") or {}
+        if settings.get("enabled") is False:
+            return {"retrieved_memories": []}
+        return {"retrieved_memories": []}
 
-    def analyze_intent(self, state: WechatReplyState) -> dict[str, Any]:
+    def media_understanding(self, state: WechatReplyState) -> dict[str, Any]:
+        """Only runs for media/file turns and keeps the output compact.
+
+        Actual OCR/VLM/STT happens before LangGraph in MediaRecognitionService.
+        This node only turns the already recognized media description into a
+        concise observation for the semantic decision prompt.
+        """
+        media_settings = self._node_settings(state).get("media_understanding") or {}
+        if media_settings.get("enabled") is False or not self._has_media_turn(state):
+            return {"media_observations": []}
+        media_text = self._media_text(state)
+        if not media_text:
+            return {"media_observations": []}
+        try:
+            output = self._validate_output(
+                MediaUnderstandingOutput,
+                self.client.complete_json(MEDIA_UNDERSTANDING_PROMPT, self._base_user_prompt(state)),
+                state,
+                "media_understanding",
+            )
+            observations = self._coerce_message_list(output.media_observations)
+        except Exception:
+            observations = [self._shorten(media_text, 120)]
+        max_observations = int(media_settings.get("max_observations") or 3)
+        return {"media_observations": observations[:max(1, max_observations)]}
+
+    def semantic_reply_decision(self, state: WechatReplyState) -> dict[str, Any]:
         output = self._validate_output(
-            IntentAnalysisOutput,
-            self.client.complete_json(ANALYZE_INTENT_PROMPT, self._base_user_prompt(state)),
+            SemanticReplyDecisionOutput,
+            self.client.complete_json(SEMANTIC_REPLY_DECISION_PROMPT, self._base_user_prompt(state)),
             state,
-            "analyze_intent",
+            "semantic_reply_decision",
         )
-        return {key: sanitize_text(str(value)).strip() for key, value in output.model_dump().items()}
-
-    def decide_reply(self, state: WechatReplyState) -> dict[str, Any]:
-        output = self._validate_output(
-            ReplyDecisionOutput,
-            self.client.complete_json(DECIDE_REPLY_PROMPT, self._base_user_prompt(state, include_analysis=True)),
-            state,
-            "decide_reply",
-        )
+        risk_flags = self._risk_flags(state, self._coerce_message_list(output.risk_flags))
         return {
+            "intent": sanitize_text(output.intent).strip(),
+            "emotion": sanitize_text(output.emotion).strip(),
+            "user_need": sanitize_text(output.user_need).strip(),
+            "relationship_signal": sanitize_text(output.relationship_signal).strip(),
             "should_reply": output.should_reply,
             "no_reply_reason": sanitize_text(output.no_reply_reason).strip(),
+            "reply_strategy": sanitize_text(output.reply_strategy).strip(),
+            "risk_flags": risk_flags,
+            "requires_safety_model": bool(risk_flags),
         }
 
-    def plan_response(self, state: WechatReplyState) -> dict[str, Any]:
+    def proactive_send_decision(self, state: WechatReplyState) -> dict[str, Any]:
+        if not self._policy_allows_proactive(state):
+            return {
+                "should_reply": False,
+                "no_reply_reason": "全局主动模式未开启",
+                "reply_strategy": "",
+                "risk_flags": [],
+                "requires_safety_model": False,
+                "draft_messages": [],
+                "final_messages": [],
+            }
         output = self._validate_output(
-            ResponsePlanOutput,
-            self.client.complete_json(PLAN_RESPONSE_PROMPT, self._base_user_prompt(state, include_analysis=True)),
+            ProactiveSendDecisionOutput,
+            self.client.complete_json(PROACTIVE_SEND_DECISION_PROMPT, self._base_user_prompt(state)),
             state,
-            "plan_response",
+            "proactive_send_decision",
         )
-        return {"reply_strategy": sanitize_text(output.reply_strategy).strip()}
+        risk_flags = self._risk_flags(state, self._coerce_message_list(output.risk_flags))
+        message = sanitize_text(output.suggested_message).strip()
+        should_send = bool(output.should_send and message and not risk_flags)
+        return {
+            "intent": "主动触达判断",
+            "emotion": "",
+            "user_need": "无新消息，检查是否允许轻度主动",
+            "relationship_signal": "",
+            "should_reply": should_send,
+            "no_reply_reason": "" if should_send else sanitize_text(output.no_send_reason or "当前不适合主动").strip(),
+            "reply_strategy": sanitize_text(output.strategy).strip(),
+            "risk_flags": risk_flags,
+            "requires_safety_model": bool(risk_flags),
+            "draft_messages": [message] if should_send else [],
+        }
 
     def draft_reply(self, state: WechatReplyState) -> dict[str, Any]:
         output = self._validate_output(
             DraftReplyOutput,
             self.client.complete_json(
                 DRAFT_REPLY_PROMPT,
-                self._base_user_prompt(state, include_analysis=True)
+                self._base_user_prompt(state, include_decision=True)
                 + f"\n\nmax_messages_per_turn: {self._max_messages(state)}",
             ),
             state,
@@ -93,22 +159,31 @@ class WechatReplyNodes:
         max_messages = self._max_messages(state)
         return {"draft_messages": self._coerce_message_list(output.draft_messages)[:max_messages]}
 
-    def auto_safety_check(self, state: WechatReplyState) -> dict[str, Any]:
-        raw_draft_messages = self._coerce_message_list(state.get("draft_messages"))
-        deterministic = self._deterministic_safety(raw_draft_messages, state)
+    def rule_safety_check(self, state: WechatReplyState) -> dict[str, Any]:
+        messages = self._coerce_message_list(state.get("draft_messages"))
+        deterministic = self._deterministic_safety(messages, state)
         if deterministic["safety_action"] != "allow":
-            return deterministic
-        draft_messages = self._normalize_messages(state.get("draft_messages"), state)
+            return {**deterministic, "requires_safety_model": False}
+        normalized = self._normalize_messages(messages, state)
+        checked = self._apply_profile_safety(normalized, state, "allow", [])
+        if state.get("requires_safety_model", False):
+            return {**checked, "requires_safety_model": True}
+        return {**checked, "requires_safety_model": False}
+
+    def model_safety_check(self, state: WechatReplyState) -> dict[str, Any]:
+        draft_messages = self._normalize_messages(state.get("final_messages") or state.get("draft_messages"), state)
         output = self._validate_output(
             SafetyCheckOutput,
             self.client.complete_json(
                 SAFETY_CHECK_PROMPT,
-                self._base_user_prompt(state, include_analysis=True)
+                self._base_user_prompt(state, include_decision=True)
+                + "\n\n风险标记:\n"
+                + json.dumps(state.get("risk_flags") or [], ensure_ascii=False)
                 + "\n\n草稿消息:\n"
                 + json.dumps(draft_messages, ensure_ascii=False),
             ),
             state,
-            "auto_safety_check",
+            "model_safety_check",
         )
         action = output.safety_action.strip().lower()
         if action not in {"allow", "rewrite", "skip"}:
@@ -137,35 +212,76 @@ class WechatReplyNodes:
             "raw_output": raw_output,
         }
 
-    def _base_user_prompt(self, state: WechatReplyState, include_analysis: bool = False) -> str:
+    def _base_user_prompt(self, state: WechatReplyState, include_decision: bool = False) -> str:
         lines = [
             f"run_id: {state.get('run_id', '')}",
             f"proactive_mode: {state.get('proactive_mode', 'off')}",
             f"conversation_id: {state.get('conversation_id', '')}",
             f"trigger_message_id: {state.get('trigger_message_id', '')}",
+            f"trigger_message_type: {state.get('trigger_message_type', 'text')}",
             f"display_name: {state.get('display_name', '')}",
-            "\n[联系人策略]",
-            json.dumps(state.get("contact_policy") or {}, ensure_ascii=False),
-            "\n[会话画像]",
-            json.dumps(state.get("conversation_profile") or {}, ensure_ascii=False),
-            "\n[上下文]",
-            str(state.get("context", "")),
+            "\n[系统提示词]",
+            sanitize_text(str(state.get("system_prompt", ""))).strip(),
+            "\n[节点参数摘要]",
+            self._compact_json(
+                self._node_settings(state).get("reply_strategy") or {},
+                keys=(
+                    "default_max_messages",
+                    "default_max_chars_per_message",
+                    "question_policy",
+                    "initiative_level",
+                    "ending_style",
+                    "community_reply_policy",
+                ),
+            ),
+            "\n[独立扩展提示词]",
+            self._prompt_extensions_text(state),
+            "\n[主动触达控制]",
+            self._compact_json(
+                self._node_settings(state).get("proactive") or {},
+                keys=("enabled", "default_mode", "manual_trigger_only", "cooldown_minutes", "max_messages_per_day", "decision_policy"),
+            ),
+            "\n[最近上下文摘要]",
+            str(state.get("context_summary", "")),
+            "\n[最近消息窗口]",
+            "\n".join(self._recent_messages(state)),
+            "\n[相关记忆]",
+            "\n".join(self._coerce_message_list(state.get("retrieved_memories"))),
+            "\n[媒体观察]",
+            "\n".join(self._coerce_message_list(state.get("media_observations"))[:3]),
             "\n[触发消息]",
             str(state.get("trigger_message", "")),
         ]
-        if include_analysis:
+        if include_decision:
             lines.extend(
                 [
-                    "\n[已分析字段]",
+                    "\n[语义判断与回复决策]",
                     f"intent: {state.get('intent', '')}",
                     f"emotion: {state.get('emotion', '')}",
                     f"user_need: {state.get('user_need', '')}",
                     f"relationship_signal: {state.get('relationship_signal', '')}",
                     f"should_reply: {state.get('should_reply', '')}",
+                    f"no_reply_reason: {state.get('no_reply_reason', '')}",
                     f"reply_strategy: {state.get('reply_strategy', '')}",
+                    f"risk_flags: {json.dumps(state.get('risk_flags') or [], ensure_ascii=False)}",
                 ]
             )
         return "\n".join(lines)
+
+    def _prompt_extensions_text(self, state: WechatReplyState) -> str:
+        extensions = state.get("prompt_extensions") or []
+        if not isinstance(extensions, list):
+            return ""
+        parts: list[str] = []
+        for item in extensions:
+            if not isinstance(item, dict):
+                continue
+            name = sanitize_text(str(item.get("name") or "未命名扩展")).strip()
+            weight = item.get("weight", 1.0)
+            content = sanitize_text(str(item.get("content") or "")).strip()
+            if content:
+                parts.append(f"[{name} | 权重 {weight}]\n{content}")
+        return "\n\n".join(parts)
 
     def _validate_output(self, model_cls, data: dict[str, Any], state: WechatReplyState, node_name: str):
         try:
@@ -192,8 +308,8 @@ class WechatReplyNodes:
 
     def _coerce_message_list(self, value: Any) -> list[str]:
         if isinstance(value, str):
-            return [value]
-        elif isinstance(value, list):
+            return [value] if value.strip() else []
+        if isinstance(value, list):
             return [sanitize_text(str(item)).strip() for item in value if sanitize_text(str(item)).strip()]
         return []
 
@@ -275,18 +391,19 @@ class WechatReplyNodes:
             text = sanitize_text(str(message)).strip()
             cleaned = self._remove_identity_claims(text)
             if cleaned != text or any(word in cleaned for word in SERVICE_TONE_WORDS):
-                cleaned = self._rewrite_locally([cleaned], state)[0] if self._rewrite_locally([cleaned], state) else ""
+                local = self._rewrite_locally([cleaned], state)
+                cleaned = local[0] if local else ""
                 rewrote = True
                 safety_reasons.append("已本地移除 AI/客服腔表达")
             shortened = self._shorten(cleaned, max_chars)
             if shortened != cleaned:
                 rewrote = True
-                safety_reasons.append("已按会话画像缩短单条消息")
+                safety_reasons.append("已按回复策略缩短单条消息")
             if shortened:
                 final_messages.append(shortened)
         if len(messages) > max_messages:
             rewrote = True
-            safety_reasons.append("已按会话画像截断消息条数")
+            safety_reasons.append("已按回复策略截断消息条数")
         if not final_messages:
             return {"safety_action": "skip", "safety_reasons": safety_reasons or ["安全检查后无可发送内容"], "final_messages": []}
         return {
@@ -296,19 +413,14 @@ class WechatReplyNodes:
         }
 
     def _max_messages(self, state: WechatReplyState) -> int:
-        policy_limit = int(state.get("max_messages_per_turn") or 2)
-        profile = state.get("conversation_profile") or {}
-        profile_limit = profile.get("max_messages") if isinstance(profile, dict) else None
-        if isinstance(profile_limit, int) and profile_limit > 0:
-            return max(1, min(policy_limit, profile_limit))
-        return max(1, policy_limit)
+        reply_settings = self._node_settings(state).get("reply_strategy") or {}
+        config_limit = int(state.get("max_messages_per_turn") or 2)
+        node_limit = int(reply_settings.get("default_max_messages") or config_limit)
+        return max(1, min(config_limit, node_limit))
 
     def _max_chars_per_message(self, state: WechatReplyState) -> int:
-        profile = state.get("conversation_profile") or {}
-        value = profile.get("max_chars_per_message") if isinstance(profile, dict) else None
-        if isinstance(value, int) and value > 0:
-            return value
-        return 80
+        reply_settings = self._node_settings(state).get("reply_strategy") or {}
+        return int(reply_settings.get("default_max_chars_per_message") or 80)
 
     def _shorten(self, text: str, max_chars: int) -> str:
         if len(text) <= max_chars:
@@ -316,13 +428,56 @@ class WechatReplyNodes:
         return text[:max_chars].rstrip(" ，,。")
 
     def _matched_avoid_topic(self, messages: list[str], state: WechatReplyState) -> str:
-        profile = state.get("conversation_profile") or {}
-        avoid_topics = profile.get("avoid_topics") if isinstance(profile, dict) else []
-        if not isinstance(avoid_topics, list):
-            return ""
-        haystack = "\n".join([str(state.get("trigger_message", "")), *messages])
-        for topic in avoid_topics:
-            topic_text = sanitize_text(str(topic)).strip()
-            if topic_text and topic_text in haystack:
-                return topic_text
         return ""
+
+    def _risk_flags(self, state: WechatReplyState, model_flags: list[str]) -> list[str]:
+        text = "\n".join(
+            [
+                str(state.get("trigger_message", "")),
+                "\n".join(self._coerce_message_list(state.get("recent_messages"))[-3:]),
+                "\n".join(self._coerce_message_list(state.get("draft_messages"))),
+            ]
+        )
+        flags = [flag for flag in model_flags if flag]
+        risk_settings = self._node_settings(state).get("risk") or {}
+        keywords = risk_settings.get("risk_keywords") if isinstance(risk_settings.get("risk_keywords"), list) else RISK_KEYWORDS
+        for keyword in keywords:
+            if keyword in text:
+                flags.append(keyword)
+        return list(dict.fromkeys(flags))
+
+    def _policy_allows_proactive(self, state: WechatReplyState) -> bool:
+        proactive_mode = str(state.get("proactive_mode") or "off").lower()
+        if proactive_mode in {"", "off", "false", "0", "disabled"}:
+            return False
+        proactive_settings = self._node_settings(state).get("proactive") or {}
+        if proactive_settings.get("enabled") is False:
+            return False
+        return True
+
+    def _has_media_turn(self, state: WechatReplyState) -> bool:
+        message_type = str(state.get("trigger_message_type", "")).lower()
+        if message_type in {"image", "sticker", "voice", "file", "unsupported"}:
+            return True
+        text = str(state.get("trigger_message", ""))
+        return any(marker in text for marker in MEDIA_MARKERS)
+
+    def _media_text(self, state: WechatReplyState) -> str:
+        chunks = [str(state.get("trigger_message", ""))]
+        chunks.extend(self._coerce_message_list(state.get("recent_messages"))[-3:])
+        return "\n".join(chunk for chunk in chunks if any(marker in chunk for marker in MEDIA_MARKERS))
+
+    def _compact_json(self, value: dict[str, Any], keys: tuple[str, ...]) -> str:
+        if not isinstance(value, dict):
+            return "{}"
+        compact = {key: value.get(key) for key in keys if value.get(key) not in (None, "", [], {})}
+        return json.dumps(compact, ensure_ascii=False)
+
+    def _node_settings(self, state: WechatReplyState) -> dict[str, Any]:
+        settings = state.get("node_settings") or {}
+        return settings if isinstance(settings, dict) else {}
+
+    def _recent_messages(self, state: WechatReplyState) -> list[str]:
+        semantic_settings = self._node_settings(state).get("semantic") or {}
+        limit = int(semantic_settings.get("recent_message_limit") or 8)
+        return self._coerce_message_list(state.get("recent_messages"))[-max(1, limit):]

@@ -44,8 +44,9 @@ WECHAT_391256_BUILTIN_LOCATORS: dict[str, Any] = {
         "fallback": "失败时 dump 左侧会话列表",
     },
     "conversation_item_unread": {
+        "verified": False,
         "max_depth": 4,
-        "enable_small_pane_candidate": True,
+        "enable_small_pane_candidate": False,
         "size_range": {
             "min_width": 8,
             "max_width": 28,

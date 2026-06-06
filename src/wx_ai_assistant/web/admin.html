@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ChatWe 本地控制台</title>
-    <link rel="stylesheet" href="/web/admin.css" />
+    <link rel="stylesheet" href="/web/admin.css?v=20260605-speech-recognition" />
   </head>
   <body>
     <div class="shell">
@@ -18,6 +18,8 @@
         </div>
         <button class="nav active" data-view="desk">前台监控</button>
         <button class="nav" data-view="settings">后台配置</button>
+        <button class="nav" data-view="knowledge">知识库</button>
+        <button class="nav" data-view="strategy">策略分析</button>
         <button id="status-card" class="status-card">
           <span id="health-dot" class="dot"></span>
           <div>
@@ -29,6 +31,11 @@
           <div class="side-section-head">
             <span>监听列表</span>
             <button id="open-targets-btn" class="side-link">详情</button>
+          </div>
+          <div class="side-add-target">
+            <input id="target-name" placeholder="联系人名称" />
+            <input id="target-local-id" placeholder="备注 / local_id" />
+            <button id="add-target-btn" class="btn primary">添加联系人</button>
           </div>
           <div id="side-targets" class="side-target-list"></div>
         </section>
@@ -47,18 +54,6 @@
               <button id="refresh-btn" class="btn primary">刷新</button>
             </div>
           </header>
-
-          <section class="toolbar">
-            <label>
-              联系人名称
-              <input id="target-name" placeholder="例如 AAxc" />
-            </label>
-            <label>
-              备注 / local_id
-              <input id="target-local-id" placeholder="默认同联系人名称" />
-            </label>
-            <button id="add-target-btn" class="btn">增加监听对象</button>
-          </section>
 
           <div class="layout">
             <section class="panel message-panel">
@@ -100,7 +95,7 @@
           <header class="page-head">
             <div>
               <h2>后台配置</h2>
-              <p>模型、密钥、提示词、联系人策略和会话画像在这里维护。</p>
+              <p>模型连接、回复节奏、视觉识别、提示词和节点参数在这里维护。保存后重启服务生效。</p>
             </div>
             <button id="save-config-btn" class="btn primary">保存配置</button>
           </header>
@@ -111,13 +106,48 @@
                 <h3>模型连接</h3>
                 <span id="api-key-state" class="muted"></span>
               </div>
-              <div class="form-grid">
-                <label>Base URL<input id="cfg-base-url" /></label>
-                <label>模型名<input id="cfg-model" /></label>
-                <label>API Key<input id="cfg-api-key" type="password" placeholder="留空表示不修改" /></label>
-                <label>Temperature<input id="cfg-temperature" type="number" step="0.1" /></label>
-                <label>Max Tokens<input id="cfg-max-tokens" type="number" /></label>
-                <label>Timeout 秒<input id="cfg-timeout" type="number" step="1" /></label>
+              <p class="settings-note">这里配的是聊天回复模型。百炼、DeepSeek、OpenAI 这类 OpenAI 兼容接口，通常只需要地址、密钥和模型名。</p>
+              <div class="form-grid two-col">
+                <label class="setting-field">
+                  <span class="field-title"><span>当前模式</span><code>AI Mode</code></span>
+                  <input id="cfg-ai-mode" readonly />
+                  <small>只读。真实回复应为 langgraph；mock 调试一般是 dummy。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>接口地址</span><code>Base URL</code></span>
+                  <input id="cfg-base-url" placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1" />
+                  <small>SDK 请求入口。百炼北京地域常用上面这个；直接走 DeepSeek 官方接口则填 https://api.deepseek.com。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>模型名</span><code>Model</code></span>
+                  <input id="cfg-model" placeholder="deepseek-v4-flash / qwen-plus" />
+                  <small>必须和服务商支持的模型 ID 完全一致。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>密钥</span><code>API Key</code></span>
+                  <input id="cfg-api-key" type="password" placeholder="留空表示不修改" autocomplete="new-password" />
+                  <small>只在后端保存，不会回显。留空不会清掉已有密钥。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>随机度</span><code>Temperature</code></span>
+                  <input id="cfg-temperature" type="number" step="0.1" min="0" max="2" />
+                  <small>微信自动回复建议先用 0.3 到 0.8；越高越活，也越容易跑偏。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>最大输出</span><code>Max Tokens</code></span>
+                  <input id="cfg-max-tokens" type="number" min="1" />
+                  <small>限制单次回复长度。私聊短回复一般 500 到 1000 就够。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>超时</span><code>Timeout</code></span>
+                  <input id="cfg-timeout" type="number" step="1" min="1" />
+                  <small>单位秒。网络慢或模型慢时可调到 45 到 60。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>额外参数</span><code>Extra Body</code></span>
+                  <input id="cfg-extra-body" placeholder='{"enable_thinking":false}' />
+                  <small>会合进聊天模型请求体。不了解就留空；部分模型可用它关闭思考输出。</small>
+                </label>
               </div>
             </section>
 
@@ -125,54 +155,366 @@
               <div class="panel-head">
                 <h3>回复节奏</h3>
               </div>
+              <p class="settings-note">这里决定什么时候把一串消息合并成一轮，不直接碰微信窗口。</p>
               <div class="form-grid">
-                <label>主动模式
+                <label class="setting-field">
+                  <span class="field-title"><span>主动模式</span><code>Proactive</code></span>
                   <select id="cfg-proactive">
-                    <option value="off">off</option>
-                    <option value="on">on</option>
+                    <option value="off">关闭 off</option>
+                    <option value="on">开启 on</option>
                   </select>
+                  <small>先建议关闭。开启后才允许系统在没有明确问题时主动接话。</small>
                 </label>
-                <label>静默等待秒数<input id="cfg-quiet" type="number" step="0.5" /></label>
-                <label>重复回复保护秒数<input id="cfg-duplicate" type="number" step="1" /></label>
-                <label>每轮最多消息条数<input id="cfg-max-messages" type="number" /></label>
+                <label class="setting-field">
+                  <span class="field-title"><span>自动发送</span><code>Auto Send</code></span>
+                  <select id="cfg-auto-send-enabled">
+                    <option value="false">关闭，只分析</option>
+                    <option value="true">开启，自动发送</option>
+                  </select>
+                  <small>默认关闭。关闭时监听到消息后只生成 AI 建议，不创建发送任务；手动发送不受影响。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>静默等待</span><code>Quiet Seconds</code></span>
+                  <input id="cfg-quiet" type="number" step="0.5" min="0" />
+                  <small>对方连发时等一等再回，避免第一条刚到就抢答。常用 4 到 8 秒。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>重复保护</span><code>Duplicate Guard</code></span>
+                  <input id="cfg-duplicate" type="number" step="1" min="0" />
+                  <small>相同可见消息在这段时间内不重复触发。常用 90 到 180 秒。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>每轮最多条数</span><code>Max Messages</code></span>
+                  <input id="cfg-max-messages" type="number" min="1" />
+                  <small>只取最近几条做本轮输入，避免旧消息把判断带偏。</small>
+                </label>
               </div>
+            </section>
+
+            <section class="panel vision-panel">
+              <div class="panel-head">
+                <h3>图片 / 表情包识别</h3>
+                <span id="vision-key-state" class="muted"></span>
+              </div>
+              <p class="settings-note">视觉模型只负责把图片、表情包转成文字描述，不能直接生成聊天回复。</p>
+              <div class="form-grid two-col">
+                <label class="setting-field">
+                  <span class="field-title"><span>启用视觉</span><code>Vision Enabled</code></span>
+                  <select id="cfg-vision-enabled">
+                    <option value="false">关闭 false</option>
+                    <option value="true">开启 true</option>
+                  </select>
+                  <small>开启后，图片和表情包会先走视觉识别，再进入消息入库。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>视觉接口地址</span><code>Vision Base URL</code></span>
+                  <input id="cfg-vision-base-url" placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1" />
+                  <small>可和主模型共用，也可以单独填视觉服务地址。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>视觉模型名</span><code>Vision Model</code></span>
+                  <input id="cfg-vision-model" placeholder="qwen3-vl-plus / qwen-vl-plus" />
+                  <small>需要支持 image_url 图片输入。百炼当前可先用 qwen3-vl-plus，旧配置可继续用 qwen-vl-plus。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>视觉密钥</span><code>Vision API Key</code></span>
+                  <input id="cfg-vision-api-key" type="password" placeholder="留空表示不修改" autocomplete="new-password" />
+                  <small>留空则不修改；后端配置可以选择和主模型共用同一个 Key。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>识别随机度</span><code>Vision Temperature</code></span>
+                  <input id="cfg-vision-temperature" type="number" step="0.1" min="0" max="2" />
+                  <small>识图要稳，建议 0 到 0.2。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>识别输出上限</span><code>Vision Max Tokens</code></span>
+                  <input id="cfg-vision-max-tokens" type="number" min="1" />
+                  <small>只要描述图里内容，300 左右通常够用。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>视觉超时</span><code>Vision Timeout</code></span>
+                  <input id="cfg-vision-timeout" type="number" step="1" min="1" />
+                  <small>图片接口慢时可以调高。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>额外参数</span><code>Extra Body</code></span>
+                  <input id="cfg-vision-extra-body" placeholder='{"enable_thinking":false}' />
+                  <small>会原样合进请求体。不了解就留空或保持默认。</small>
+                </label>
+              </div>
+              <label class="setting-field editor-field">
+                <span class="field-title"><span>视觉系统提示词</span><code>Vision System Prompt</code></span>
+                <textarea id="cfg-vision-system-prompt" spellcheck="false"></textarea>
+                <small>只写识别要求，不写聊天回复要求。</small>
+              </label>
+            </section>
+
+            <section class="panel speech-panel">
+              <div class="panel-head">
+                <h3>语音识别</h3>
+                <span id="speech-key-state" class="muted"></span>
+              </div>
+              <p class="settings-note">语音模型只负责把对方语音转成文字，不直接生成聊天回复。当前不会猜测微信语音缓存路径；拿到音频文件或微信已显示转文字后才进入识别链路。</p>
+              <div class="form-grid two-col">
+                <label class="setting-field">
+                  <span class="field-title"><span>启用语音</span><code>Speech Enabled</code></span>
+                  <select id="cfg-speech-enabled">
+                    <option value="false">关闭 false</option>
+                    <option value="true">开启 true</option>
+                  </select>
+                  <small>开启后，带 audio 文件路径的语音消息会先转写再入库。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>语音接口地址</span><code>Speech Base URL</code></span>
+                  <input id="cfg-speech-base-url" placeholder="https://api.openai.com/v1" />
+                  <small>OpenAI 兼容音频转写接口，最终请求 /audio/transcriptions。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>语音模型名</span><code>Speech Model</code></span>
+                  <input id="cfg-speech-model" placeholder="gpt-4o-mini-transcribe / whisper-1" />
+                  <small>服务商支持的转写模型 ID。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>语音密钥</span><code>Speech API Key</code></span>
+                  <input id="cfg-speech-api-key" type="password" placeholder="留空表示不修改" autocomplete="new-password" />
+                  <small>留空则不修改；可以和主模型共用同一个 Key。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>语言</span><code>Language</code></span>
+                  <input id="cfg-speech-language" placeholder="zh" />
+                  <small>中文建议 zh；混合语言可留空交给模型判断。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>超时</span><code>Speech Timeout</code></span>
+                  <input id="cfg-speech-timeout" type="number" step="1" min="1" />
+                  <small>单位秒。语音较长时可以调高。</small>
+                </label>
+              </div>
+              <label class="setting-field editor-field">
+                <span class="field-title"><span>语音提示词</span><code>Speech Prompt</code></span>
+                <textarea id="cfg-speech-prompt" spellcheck="false"></textarea>
+                <small>只写转写要求，不写聊天回复要求。</small>
+              </label>
             </section>
 
             <section class="panel prompt-panel">
               <div class="panel-head">
-                <h3>系统提示词库</h3>
-                <span class="muted">最高权限、回合规则、风格</span>
+                <h3>提示词模块</h3>
+                <span class="muted">系统提示词 + 独立扩展提示词</span>
               </div>
-              <div class="prompt-grid">
-                <label>核心系统提示词<textarea id="cfg-core-prompt"></textarea></label>
-                <label>微信回合提示词<textarea id="cfg-turn-prompt"></textarea></label>
-                <label>风格提示词<textarea id="cfg-style-prompt"></textarea></label>
+              <p class="settings-note">只保留一个系统提示词；圈子语境、关系推进、邀约升温等内容放在扩展提示词里，可多选并设置权重。</p>
+              <div class="prompt-two-grid">
+                <label class="setting-field editor-field">
+                  <span class="field-title"><span>系统提示词</span><code>System Prompt</code></span>
+                  <textarea id="cfg-core-prompt" spellcheck="false"></textarea>
+                  <small>只放最高身份、输出格式和全局方向。</small>
+                </label>
+                <div class="prompt-extension-editor">
+                  <div class="panel-head compact">
+                    <h3>独立扩展提示词</h3>
+                    <button id="new-prompt-extension-btn" class="btn">新增扩展</button>
+                  </div>
+                  <div id="prompt-extension-list" class="prompt-extension-list empty">暂无扩展提示词。</div>
+                  <div class="prompt-extension-form">
+                    <label class="setting-field">
+                      <span class="field-title"><span>名称</span><code>Name</code></span>
+                      <input id="prompt-extension-name" placeholder="例如：圈子语境" />
+                    </label>
+                    <label class="setting-field">
+                      <span class="field-title"><span>权重</span><code>Weight</code></span>
+                      <input id="prompt-extension-weight" type="number" min="0" max="5" step="0.1" />
+                    </label>
+                    <label class="inline-check">
+                      <input id="prompt-extension-enabled" type="checkbox" />
+                      启用该扩展
+                    </label>
+                    <label class="setting-field editor-field extension-content-field">
+                      <span class="field-title"><span>内容</span><code>Content</code></span>
+                      <textarea id="prompt-extension-content" spellcheck="false" placeholder="写圈子、关系推进、邀约升温等可独立开关的提示词。"></textarea>
+                    </label>
+                    <div class="prompt-extension-actions">
+                      <button id="save-prompt-extension-btn" class="btn primary">保存扩展</button>
+                      <button id="delete-prompt-extension-btn" class="btn danger">删除扩展</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
-            <section class="panel policy-panel">
+            <section class="panel node-settings-panel">
               <div class="panel-head">
-                <h3>联系人策略</h3>
+                <h3>语义与回复策略节点</h3>
+                <span class="muted">最近消息、记忆、风险词、字数和追问策略</span>
               </div>
-              <textarea id="cfg-contact-policies" class="json-area"></textarea>
+              <p class="settings-note">这些是节点参数，不是提示词。调小会更谨慎，调大可能更能接住长上下文。</p>
+              <textarea id="cfg-langgraph-nodes" class="json-area large" spellcheck="false"></textarea>
+            </section>
+          </div>
+        </section>
+
+        <section id="view-knowledge" class="view">
+          <header class="page-head">
+            <div>
+              <h2>知识库</h2>
+              <p>上传资料、粘贴文本、建立向量索引，并检查检索命中质量。</p>
+            </div>
+            <div class="head-actions">
+              <button id="refresh-strategy-btn" class="btn">刷新知识库</button>
+            </div>
+          </header>
+
+          <div class="knowledge-grid">
+            <section class="panel knowledge-upload-panel">
+              <div class="panel-head">
+                <h3>上传知识文档</h3>
+                <span class="muted">PDF / DOCX / PPTX / TXT / MD</span>
+              </div>
+              <p class="settings-note">图片会被忽略。知识类型可选默认；标签只是用户标记，不会被系统自动猜成规则。</p>
+              <div class="form-grid">
+                <label class="setting-field">
+                  <span class="field-title"><span>文件</span><code>Document</code></span>
+                  <input id="knowledge-file" type="file" accept=".pdf,.docx,.pptx,.txt,.md" />
+                  <small>PDF 需要可提取文本层；扫描 PDF 当前不 OCR。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>标题</span><code>Title</code></span>
+                  <input id="knowledge-title" placeholder="留空则使用文件名" />
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>知识类型</span><code>Type</code></span>
+                  <select id="knowledge-type">
+                    <option value="默认">默认</option>
+                    <option value="回复策略">回复策略</option>
+                    <option value="关系判断">关系判断</option>
+                    <option value="回复内容">回复内容</option>
+                    <option value="话术">话术</option>
+                  </select>
+                  <small>选默认也可以，后续分析由大模型结合内容自行判断。</small>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>推荐标签</span><code>Tags</code></span>
+                  <div class="tag-picks" id="knowledge-tag-picks">
+                    <label><input type="checkbox" value="回复策略" /> 回复策略</label>
+                    <label><input type="checkbox" value="关系判断" /> 关系判断</label>
+                    <label><input type="checkbox" value="回复内容" /> 回复内容</label>
+                    <label><input type="checkbox" value="话术" /> 话术</label>
+                    <label><input type="checkbox" value="开场白" /> 开场白</label>
+                    <label><input type="checkbox" value="延伸话题" /> 延伸话题</label>
+                  </div>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>自定义标签</span><code>Custom Tags</code></span>
+                  <input id="knowledge-custom-tags" placeholder="用逗号分隔，例如 幽默调侃,邀约推进" />
+                </label>
+                <button id="upload-knowledge-btn" class="btn primary">上传并建立索引</button>
+                <div id="knowledge-upload-result" class="contact-config-result empty">请选择文档。</div>
+              </div>
             </section>
 
-            <section class="panel profile-panel">
+            <section class="panel knowledge-text-panel">
               <div class="panel-head">
-                <h3>会话画像</h3>
+                <h3>文本粘贴</h3>
+                <span class="muted">默认标签</span>
               </div>
-              <textarea id="cfg-conversation-profiles" class="json-area"></textarea>
+              <div class="form-grid">
+                <label class="setting-field">
+                  <span class="field-title"><span>标题</span><code>Title</code></span>
+                  <input id="knowledge-text-title" placeholder="例如：临时回复技巧" />
+                </label>
+                <label class="setting-field editor-field">
+                  <span class="field-title"><span>内容</span><code>Text</code></span>
+                  <textarea id="knowledge-text-content" spellcheck="false" placeholder="粘贴任意文本材料。"></textarea>
+                </label>
+                <button id="save-knowledge-text-btn" class="btn">保存文本知识</button>
+              </div>
             </section>
 
-            <section class="panel roadmap-panel">
+            <section class="panel knowledge-list-panel">
               <div class="panel-head">
-                <h3>后续能力预留</h3>
+                <h3>文档知识库</h3>
+                <span id="knowledge-count" class="muted">0 份文档</span>
               </div>
-              <div class="roadmap-grid">
-                <div><strong>语义判断 Agent</strong><span>意图、情绪、风险、关系信号会扩展为阶段视图。</span></div>
-                <div><strong>向量记忆</strong><span>未来接入后放在后台配置，不干扰前台监控。</span></div>
-                <div><strong>多 Agent 过程</strong><span>前台 AI 处理过程区域可显示分步骤结果。</span></div>
+              <div id="knowledge-documents" class="knowledge-doc-list empty">暂无文档。</div>
+            </section>
+
+            <section class="panel knowledge-detail-panel">
+              <div class="panel-head">
+                <h3>命中与来源预览</h3>
+                <span class="muted">展示给用户看的引用</span>
               </div>
+              <div class="form-grid">
+                <label class="setting-field">
+                  <span class="field-title"><span>检索问题</span><code>Search</code></span>
+                  <input id="knowledge-search-query" placeholder="例如：对方担心靠谱吗怎么回复" />
+                </label>
+                <label class="inline-check">
+                  <input id="knowledge-search-selected-only" type="checkbox" checked />
+                  只检索当前选中文档
+                </label>
+                <button id="search-knowledge-btn" class="btn">检索知识库</button>
+              </div>
+              <div id="knowledge-detail" class="knowledge-detail empty">选择文档或检索后显示片段。</div>
+            </section>
+          </div>
+        </section>
+
+        <section id="view-strategy" class="view">
+          <header class="page-head">
+            <div>
+              <h2>策略分析</h2>
+              <p>选择联系人启用知识影响，并按用户思路手动分析当前会话；这里只分析，不发送。</p>
+            </div>
+            <div class="head-actions">
+              <button id="refresh-strategy-page-btn" class="btn">刷新联系人</button>
+            </div>
+          </header>
+
+          <div class="strategy-grid">
+            <section class="panel contact-knowledge-panel">
+              <div class="panel-head">
+                <h3>联系人知识库开关</h3>
+                <span class="muted">默认关闭</span>
+              </div>
+              <div class="form-grid">
+                <label class="setting-field">
+                  <span class="field-title"><span>联系人</span><code>Contact</code></span>
+                  <select id="knowledge-contact-select"></select>
+                </label>
+                <label class="setting-field">
+                  <span class="field-title"><span>启用状态</span><code>Enabled</code></span>
+                  <select id="knowledge-contact-enabled">
+                    <option value="false">关闭</option>
+                    <option value="true">开启</option>
+                  </select>
+                  <small>关闭时不会影响该联系人的自动回复。策略分析接口仍可全局检索知识库。</small>
+                </label>
+                <button id="save-contact-knowledge-btn" class="btn primary">保存联系人设置</button>
+                <div id="contact-knowledge-result" class="contact-config-result empty">请选择联系人。</div>
+              </div>
+            </section>
+
+            <section class="panel strategy-analysis-panel">
+              <div class="panel-head">
+                <h3>手动策略分析</h3>
+                <span class="muted">只分析，不发送</span>
+              </div>
+              <div class="form-grid">
+                <label class="setting-field">
+                  <span class="field-title"><span>分析联系人</span><code>Contact</code></span>
+                  <select id="strategy-contact-select"></select>
+                </label>
+                <label class="setting-field editor-field">
+                  <span class="field-title"><span>用户思路</span><code>Direction</code></span>
+                  <textarea id="strategy-user-direction" spellcheck="false" placeholder="例如：这轮我想冷一点，不急着解释；优先判断她是不是在试探。"></textarea>
+                  <small>本轮最高权重输入，只影响这次策略分析，不修改自动回复配置。</small>
+                </label>
+                <label class="setting-field editor-field">
+                  <span class="field-title"><span>分析要求</span><code>Instruction</code></span>
+                  <textarea id="strategy-instruction" spellcheck="false" placeholder="例如：根据知识库分析对方意图、关系信号和建议回复策略。"></textarea>
+                </label>
+                <button id="run-strategy-analysis-btn" class="btn primary">开始分析</button>
+              </div>
+              <div id="strategy-analysis-result" class="strategy-result empty">尚未分析。</div>
             </section>
           </div>
         </section>
@@ -204,6 +546,6 @@
         <div id="status-detail" class="status-detail"></div>
       </div>
     </div>
-    <script src="/web/admin.js"></script>
+    <script src="/web/admin.js?v=20260605-speech-recognition"></script>
   </body>
 </html>

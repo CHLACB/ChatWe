@@ -1,0 +1,884 @@
+[
+  {
+    "index": 1,
+    "name": "昨天 7:43 PM",
+    "detected_content": "昨天 7:43 PM",
+    "detected_message_type": "text",
+    "detected_sender": "system",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,-535,2487,-484)[825x51]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "昨天 7:43 PM",
+        "control_type": "TextControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,-528,2487,-498)[825x30]"
+      }
+    ]
+  },
+  {
+    "index": 2,
+    "name": "你好",
+    "detected_content": "你好",
+    "detected_message_type": "text",
+    "detected_sender": "other",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,-489,2487,-409)[825x80]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,-489,2487,-409)[825x80]"
+      },
+      {
+        "name": "A2",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1707,-480,1758,-429)[51x51]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,-489,1846,-409)[80x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,-489,1846,-409)[80x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1845,-489,2487,-409)[642x80]"
+      }
+    ]
+  },
+  {
+    "index": 3,
+    "name": "你好",
+    "detected_content": "你好",
+    "detected_message_type": "text",
+    "detected_sender": "self",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,-414,2487,-334)[825x80]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,-414,2487,-334)[825x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,-414,2304,-334)[642x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2304,-414,2384,-334)[80x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2304,-414,2384,-334)[80x80]"
+      },
+      {
+        "name": "7L",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2391,-405,2442,-354)[51x51]"
+      }
+    ]
+  },
+  {
+    "index": 4,
+    "name": "在干嘛呢",
+    "detected_content": "在干嘛呢",
+    "detected_message_type": "text",
+    "detected_sender": "other",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,-339,2487,-259)[825x80]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,-339,2487,-259)[825x80]"
+      },
+      {
+        "name": "A2",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1707,-330,1758,-279)[51x51]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,-339,1888,-259)[122x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,-339,1888,-259)[122x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1887,-339,2487,-259)[600x80]"
+      }
+    ]
+  },
+  {
+    "index": 5,
+    "name": "吃饭了吗",
+    "detected_content": "吃饭了吗",
+    "detected_message_type": "text",
+    "detected_sender": "other",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,-264,2487,-184)[825x80]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,-264,2487,-184)[825x80]"
+      },
+      {
+        "name": "A2",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1707,-255,1758,-204)[51x51]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,-264,1888,-184)[122x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,-264,1888,-184)[122x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1887,-264,2487,-184)[600x80]"
+      }
+    ]
+  },
+  {
+    "index": 6,
+    "name": "刚吃完，你呢",
+    "detected_content": "刚吃完，你呢",
+    "detected_message_type": "text",
+    "detected_sender": "self",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,-189,2487,-109)[825x80]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,-189,2487,-109)[825x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,-189,2220,-109)[558x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2220,-189,2384,-109)[164x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2220,-189,2384,-109)[164x80]"
+      },
+      {
+        "name": "7L",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2391,-180,2442,-129)[51x51]"
+      }
+    ]
+  },
+  {
+    "index": 7,
+    "name": "吃的什么",
+    "detected_content": "吃的什么",
+    "detected_message_type": "text",
+    "detected_sender": "other",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,-114,2487,-34)[825x80]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,-114,2487,-34)[825x80]"
+      },
+      {
+        "name": "A2",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1707,-105,1758,-54)[51x51]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,-114,1888,-34)[122x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,-114,1888,-34)[122x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1887,-114,2487,-34)[600x80]"
+      }
+    ]
+  },
+  {
+    "index": 8,
+    "name": "我还没吃饭",
+    "detected_content": "我还没吃饭",
+    "detected_message_type": "text",
+    "detected_sender": "other",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,-39,2487,41)[825x80]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,-39,2487,41)[825x80]"
+      },
+      {
+        "name": "A2",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1707,-30,1758,21)[51x51]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,-39,1909,41)[143x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,-39,1909,41)[143x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1908,-39,2487,41)[579x80]"
+      }
+    ]
+  },
+  {
+    "index": 9,
+    "name": "好饿",
+    "detected_content": "好饿",
+    "detected_message_type": "text",
+    "detected_sender": "other",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,36,2487,116)[825x80]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,36,2487,116)[825x80]"
+      },
+      {
+        "name": "A2",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1707,45,1758,96)[51x51]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,36,1846,116)[80x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,36,1846,116)[80x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1845,36,2487,116)[642x80]"
+      }
+    ]
+  },
+  {
+    "index": 10,
+    "name": "呜呜呜",
+    "detected_content": "呜呜呜",
+    "detected_message_type": "text",
+    "detected_sender": "other",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,111,2487,191)[825x80]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,111,2487,191)[825x80]"
+      },
+      {
+        "name": "A2",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1707,120,1758,171)[51x51]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,111,1867,191)[101x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,111,1867,191)[101x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1866,111,2487,191)[621x80]"
+      }
+    ]
+  },
+  {
+    "index": 11,
+    "name": "那快去吃点东西呀",
+    "detected_content": "那快去吃点东西呀",
+    "detected_message_type": "text",
+    "detected_sender": "self",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,187,2487,267)[825x80]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,187,2487,267)[825x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,187,2178,267)[516x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2178,187,2384,267)[206x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2178,187,2384,267)[206x80]"
+      },
+      {
+        "name": "7L",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2391,196,2442,247)[51x51]"
+      }
+    ]
+  },
+  {
+    "index": 12,
+    "name": "没爱了",
+    "detected_content": "没爱了",
+    "detected_message_type": "text",
+    "detected_sender": "other",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,262,2487,342)[825x80]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,262,2487,342)[825x80]"
+      },
+      {
+        "name": "A2",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1707,271,1758,322)[51x51]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,262,1867,342)[101x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,262,1867,342)[101x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1866,262,2487,342)[621x80]"
+      }
+    ]
+  },
+  {
+    "index": 13,
+    "name": "哈哈，快去吃饭就有爱了",
+    "detected_content": "哈哈，快去吃饭就有爱了",
+    "detected_message_type": "text",
+    "detected_sender": "self",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,337,2487,416)[825x79]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,337,2487,416)[825x79]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,337,2115,416)[453x79]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2115,337,2384,416)[269x79]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2115,337,2384,416)[269x79]"
+      },
+      {
+        "name": "7L",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2391,346,2442,397)[51x51]"
+      }
+    ]
+  },
+  {
+    "index": 14,
+    "name": "昨天 11:46 PM",
+    "detected_content": "昨天 11:46 PM",
+    "detected_message_type": "text",
+    "detected_sender": "system",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,416,2487,467)[825x51]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "昨天 11:46 PM",
+        "control_type": "TextControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,423,2487,453)[825x30]"
+      }
+    ]
+  },
+  {
+    "index": 15,
+    "name": "docker怎么用",
+    "detected_content": "docker怎么用",
+    "detected_message_type": "text",
+    "detected_sender": "other",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,462,2487,542)[825x80]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,462,2487,542)[825x80]"
+      },
+      {
+        "name": "A2",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1707,471,1758,522)[51x51]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,462,1936,542)[170x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,462,1936,542)[170x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1935,462,2487,542)[552x80]"
+      }
+    ]
+  },
+  {
+    "index": 16,
+    "name": "给我详细介绍",
+    "detected_content": "给我详细介绍",
+    "detected_message_type": "text",
+    "detected_sender": "other",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,538,2487,618)[825x80]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,538,2487,618)[825x80]"
+      },
+      {
+        "name": "A2",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1707,547,1758,598)[51x51]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,538,1930,618)[164x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,538,1930,618)[164x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1929,538,2487,618)[558x80]"
+      }
+    ]
+  },
+  {
+    "index": 17,
+    "name": "docker啊，我只会基本操作，你具体想问啥",
+    "detected_content": "docker啊，我只会基本操作，你具体想问啥",
+    "detected_message_type": "text",
+    "detected_sender": "self",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,613,2487,693)[825x80]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,613,2487,693)[825x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,613,1941,693)[279x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1941,613,2384,693)[443x80]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1941,613,2384,693)[443x80]"
+      },
+      {
+        "name": "7L",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2391,622,2442,673)[51x51]"
+      }
+    ]
+  },
+  {
+    "index": 18,
+    "name": "以下为新消息",
+    "detected_content": "以下为新消息",
+    "detected_message_type": "text",
+    "detected_sender": "system",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,692,2487,742)[825x50]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,692,2487,742)[825x50]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,692,1856,742)[194x50]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1856,716,2006,718)[150x2]"
+      },
+      {
+        "name": "以下是新消息",
+        "control_type": "TextControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2021,700,2129,729)[108x29]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2144,716,2294,718)[150x2]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(2294,692,2488,742)[194x50]"
+      }
+    ]
+  },
+  {
+    "index": 19,
+    "name": "[动画表情]",
+    "detected_content": "[动画表情]",
+    "detected_message_type": "sticker",
+    "detected_sender": "other",
+    "control_type": "ListItemControl",
+    "class_name": "",
+    "automation_id": "",
+    "bounding_rectangle": "(1662,737,2487,931)[825x194]",
+    "children_count": 1,
+    "children": [
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1662,737,2487,931)[825x194]"
+      },
+      {
+        "name": "A2",
+        "control_type": "ButtonControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1707,746,1758,797)[51x51]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,737,1937,931)[171x194]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1766,737,1937,931)[171x194]"
+      },
+      {
+        "name": "",
+        "control_type": "PaneControl",
+        "class_name": "",
+        "automation_id": "",
+        "bounding_rectangle": "(1937,737,2488,931)[551x194]"
+      }
+    ]
+  }
+]

@@ -1,0 +1,84 @@
+{
+  "memory_retrieval": {
+    "enabled": true,
+    "top_k": 4,
+    "max_chars": 320
+  },
+  "semantic": {
+    "recent_message_limit": 10,
+    "context_summary_max_chars": 600,
+    "confidence_threshold": 0.52
+  },
+  "reply_strategy": {
+    "default_max_messages": 2,
+    "default_max_chars_per_message": 50,
+    "allow_follow_up_question": true,
+    "question_policy": "允许轻问一句，用于试探态度、确认关系温度或轻微调侃；不要连续追问",
+    "initiative_level": "medium_low",
+    "ending_style": "留一点悬念，停住等对方"
+  },
+  "style_control": {
+    "persona": "female_flirty_reserved",
+    "variability": "medium_high",
+    "push_pull_enabled": true,
+    "soft_teasing_enabled": true,
+    "soft_suppression_enabled": true,
+    "clingy_level": "low",
+    "sweetness_level": "medium",
+    "logic_strictness": "low_medium",
+    "emotional_variation": "medium_high",
+    "avoid_fixed_pattern": true
+  },
+  "proactive": {
+    "enabled": true,
+    "default_mode": "off",
+    "manual_trigger_only": true,
+    "min_recent_messages": 1,
+    "cooldown_minutes": 240,
+    "max_messages_per_day": 1,
+    "risk_stop_keywords": [
+      "钱",
+      "转账",
+      "借钱",
+      "密码",
+      "验证码",
+      "身份证",
+      "银行卡",
+      "隐私照",
+      "见面",
+      "酒店",
+      "开房"
+    ],
+    "decision_policy": "只有全局主动模式开启时才允许主动；每次只生成 0 或 1 条，必须短、轻、可退。"
+  },
+  "media_understanding": {
+    "enabled": true,
+    "max_observations": 3
+  },
+  "risk": {
+    "rule_first": true,
+    "model_check_only_when_risky": true,
+    "risk_keywords": [
+      "钱",
+      "转账",
+      "借钱",
+      "付款",
+      "收款",
+      "红包",
+      "银行卡",
+      "账号",
+      "密码",
+      "验证码",
+      "身份证",
+      "隐私",
+      "手机号",
+      "银行卡号",
+      "地址",
+      "照片",
+      "私密照",
+      "见面",
+      "酒店",
+      "开房"
+    ]
+  }
+}

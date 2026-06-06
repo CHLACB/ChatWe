@@ -1,4 +1,5 @@
 from wx_ai_assistant.domain.models import ConversationIdentity, Message
+from wx_ai_assistant.domain.enums import MessageType
 from wx_ai_assistant.ports.history_reader import HistoryReader
 from wx_ai_assistant.ports.repository import Repository
 
@@ -24,14 +25,25 @@ class ContextBuilder:
         if history.ok:
             lines.append("\n[历史消息摘要输入 - 当前仅原样拼接，后续可替换]")
             for m in history.messages[-20:]:
-                lines.append(f"{m.sender_type.value}:{m.sender_name or ''}: {m.content}")
+                lines.append(f"{m.sender_type.value}:{m.sender_name or ''}: {self._message_content_for_context(m)}")
         else:
             lines.append(f"\n[历史读取失败: {history.error}]")
 
         lines.append("\n[最近实时消息]")
         for m in recent:
-            lines.append(f"{m.sender_type.value}:{m.sender_name or ''}: {m.content}")
+            lines.append(f"{m.sender_type.value}:{m.sender_name or ''}: {self._message_content_for_context(m)}")
 
         lines.append("\n[当前触发消息]")
-        lines.append(trigger_message.content)
+        lines.append(self._message_content_for_context(trigger_message))
         return "\n".join(lines)
+
+    def _message_content_for_context(self, message: Message) -> str:
+        if message.message_type == MessageType.TEXT:
+            return message.content
+        label = {
+            MessageType.IMAGE: "图片",
+            MessageType.STICKER: "表情包",
+            MessageType.VOICE: "语音",
+        }.get(message.message_type, "非文本消息")
+        description = message.media_description or message.content
+        return f"[{label}] {description}".strip()

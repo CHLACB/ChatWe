@@ -165,15 +165,9 @@ analyze_intent -> decide_reply -> plan_response -> draft_reply -> auto_safety_ch
 
 如果 `decide_reply` 判断不需要回复，会直接输出 `{"messages":[],"done":true}`。旧的 `APP_AI_MODE=openai_compatible` 仍可作为回退模式。
 
-联系人策略：
+联系人策略和联系人背景 / 会话画像功能已取消。LangGraph 不再读取 `contact_policies.local.json` 或 `conversation_profiles.local.json`，每轮只使用全局回复节奏、提示词扩展和节点参数。
 
-```powershell
-copy config\contact_policies.local.example.json config\contact_policies.local.json
-```
-
-`config\contact_policies.local.json` 可以不存在，缺失时使用 default policy。策略按 `local_id`、`remark_name`、`display_name` 依次匹配，用于控制单个联系人的 `proactive_mode`、`max_messages_per_turn`、语气备注等。
-
-每次 LangGraph 调用会生成 `run_id` 并保存 `ai_decision_logs`，包含 contact policy、意图、情绪、是否回复、策略、草稿、安全检查、最终消息和节点错误。日志保存失败只打印 warning，不会阻断 `generate_reply()` 返回，也不会影响发送队列。
+每次 LangGraph 调用会生成 `run_id` 并保存 `ai_decision_logs`，包含意图、情绪、是否回复、策略、草稿、安全检查、最终消息和节点错误。日志保存失败只打印 warning，不会阻断 `generate_reply()` 返回，也不会影响发送队列。
 
 AI 输出必须由模型自己决定微信消息边界：
 

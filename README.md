@@ -22,7 +22,7 @@
 2. 不猜测微信控件信息。
 3. 已验证的微信 3.9.12.56 主窗口类名候选 `WeChatMainWndForPC` 可以作为版本专用策略；搜索框、输入框、消息区等未知控件仍必须本机采集。
 4. 历史读取不猜测微信数据库结构，默认提供“标准化 SQLite 历史库”适配器。
-5. 第一阶段只支持文本。
+5. 当前主链路以文本为核心，已预留图片、表情包、语音的可读文本描述入口；未验证媒体素材路径前不猜测微信缓存结构。
 6. 当前只回复监听名单内的好友私聊，群聊暂不支持。
 7. 自己消息入库，但不触发 AI。
 8. 自动发送，但必须经过发送队列和会话验证。
@@ -44,6 +44,7 @@ docs/
   REQUIREMENTS.md
   ARCHITECTURE.md
   UIA_INSPECTION.md
+  MEDIA_RECOGNITION.md
   HISTORY_READER.md
   RUNBOOK.md
   KNOWN_LIMITS.md
@@ -171,21 +172,11 @@ APP_AI_MODEL=deepseek-v4-flash
 
 `config\ai.local.env` 已被 `.gitignore` 忽略，不要提交密钥。AI 返回空消息数组时不会创建发送任务；非空文本只会进入发送队列。旧的 `APP_AI_MODE=openai_compatible` 仍保留为回退模式。
 
-联系人策略可以放在：
-
-```text
-config/contact_policies.local.json
-```
-
-可以从示例复制：
-
-```powershell
-copy config\contact_policies.local.example.json config\contact_policies.local.json
-```
-
-缺失时自动使用 default policy。策略可按 `display_name` / `remark_name` / `local_id` 命中，用来设置单个联系人的主动性、每轮最大消息数、语气备注等。
+联系人策略和联系人背景 / 会话画像功能已取消。自动回复只读取全局回复节奏、提示词扩展和 LangGraph 节点参数，不再按联系人加载单独策略或画像。
 
 每次 LangGraph 调用都会生成 `run_id`，并把完整节点决策保存到 `ai_decision_logs` 表。保存日志失败只会打印 warning，不影响微信回复发送。
+
+图片、表情包和语音识别使用独立媒体识别通道，不复用聊天回复模型。语音消息会优先读取微信 UI 已暴露的“语音转文字”；如果后续拿到可靠音频文件路径，可通过 `APP_SPEECH_AI_ENABLED=true` 调用 OpenAI-compatible `/audio/transcriptions` 接口转写。详见 `docs/MEDIA_RECOGNITION.md`。
 
 AI 对话提示词独立放在：
 
